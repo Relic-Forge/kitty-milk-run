@@ -2,7 +2,8 @@ import type Phaser from 'phaser';
 import { SOUNDS, type SoundKey } from './assets';
 
 type ToneName = 'yarn' | 'bonk' | 'win' | 'start';
-type GameSoundName = 'start' | 'yarn' | 'catHit' | 'foilScare' | 'vacuum' | 'win' | 'shopBuy' | 'shopEquip' | 'shopDeny';
+type GameSoundName = 'start' | 'catHit' | 'foilScare' | 'vacuum' | 'win';
+type BasketSoundName = 'collect' | 'buy' | 'equip' | 'deny';
 
 type GameSoundConfig = {
   keys: SoundKey[];
@@ -40,12 +41,6 @@ const gameSounds: Record<GameSoundName, GameSoundConfig> = {
     rate: [1.08, 1.28],
     fallback: 'start'
   },
-  yarn: {
-    keys: [SOUNDS.catPopMeow],
-    volume: 0.22,
-    rate: [1.35, 1.65],
-    fallback: 'yarn'
-  },
   catHit: {
     keys: [SOUNDS.catMewFood, SOUNDS.catSoftMew, SOUNDS.catPopMeow],
     volume: 0.5,
@@ -65,28 +60,10 @@ const gameSounds: Record<GameSoundName, GameSoundConfig> = {
     fallback: 'bonk'
   },
   win: {
-    keys: [SOUNDS.catMewPurr, SOUNDS.catSoftMew],
-    volume: 0.46,
-    rate: [0.92, 1.08],
+    keys: [SOUNDS.catPurrActive],
+    volume: 0.38,
+    rate: [0.92, 1.02],
     fallback: 'win'
-  },
-  shopBuy: {
-    keys: [SOUNDS.catSoftMew, SOUNDS.catPopMeow],
-    volume: 0.4,
-    rate: [1.12, 1.34],
-    fallback: 'yarn'
-  },
-  shopEquip: {
-    keys: [SOUNDS.catPopMeow],
-    volume: 0.32,
-    rate: [1.0, 1.18],
-    fallback: 'start'
-  },
-  shopDeny: {
-    keys: [SOUNDS.catLabMeow],
-    volume: 0.34,
-    rate: [0.72, 0.86],
-    fallback: 'bonk'
   }
 };
 
@@ -137,4 +114,62 @@ export function playGameSound(scene: Phaser.Scene, name: GameSoundName) {
   } catch {
     playToneSet(config.fallback);
   }
+}
+
+export function playBasketSound(name: BasketSoundName = 'collect') {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    const filter = ctx.createBiquadFilter();
+    const noiseGain = ctx.createGain();
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.12), ctx.sampleRate);
+    const samples = buffer.getChannelData(0);
+
+    for (let i = 0; i < samples.length; i += 1) {
+      samples[i] = (Math.random() * 2 - 1) * (1 - i / samples.length);
+    }
+
+    noise.buffer = buffer;
+    filter.type = 'bandpass';
+    filter.frequency.value = name === 'deny' ? 520 : 920;
+    filter.Q.value = 1.3;
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noiseGain.gain.setValueAtTime(0.001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(name === 'deny' ? 0.045 : 0.07, now + 0.012);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    noise.start(now);
+    noise.stop(now + 0.13);
+
+    playEnvelopeTone(ctx, name === 'deny' ? 140 : 196, 0.09, 'triangle', name === 'deny' ? 0.06 : 0.085, now + 0.018);
+    if (name !== 'deny') {
+      playEnvelopeTone(ctx, name === 'collect' ? 740 : 660, 0.08, 'sine', 0.055, now + 0.07);
+      playEnvelopeTone(ctx, name === 'collect' ? 988 : 880, 0.07, 'sine', 0.042, now + 0.125);
+    }
+  } catch {
+    playToneSet(name === 'deny' ? 'bonk' : 'yarn');
+  }
+}
+
+function playEnvelopeTone(
+  ctx: AudioContext,
+  frequency: number,
+  duration: number,
+  type: OscillatorType,
+  volume: number,
+  start: number
+) {
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = type;
+  oscillator.frequency.value = frequency;
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0.001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
 }

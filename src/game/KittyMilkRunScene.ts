@@ -16,7 +16,7 @@ import {
   type GamePhase,
   type ObstacleType
 } from './constants';
-import { playGameSound, playToneSet } from './sound';
+import { playBasketSound, playGameSound, playToneSet } from './sound';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
@@ -40,6 +40,20 @@ type ShopCard = {
   priceText: Phaser.GameObjects.Text;
 };
 
+type SpeedOption = {
+  label: string;
+  multiplier: number;
+  tint: number;
+};
+
+type SpeedButton = {
+  option: SpeedOption;
+  container: Phaser.GameObjects.Container;
+  background: Phaser.GameObjects.Graphics;
+  yarn: Phaser.GameObjects.Image;
+  labelText: Phaser.GameObjects.Text;
+};
+
 type VisibleGameObject = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible;
 
 const COSMETICS: CosmeticOption[] = [
@@ -53,8 +67,16 @@ const COSMETICS: CosmeticOption[] = [
 const STORAGE_KEYS = {
   basket: 'kitty-milk-run:yarn-basket',
   selected: 'kitty-milk-run:selected-cat',
-  unlocked: 'kitty-milk-run:unlocked-cats'
+  unlocked: 'kitty-milk-run:unlocked-cats',
+  speed: 'kitty-milk-run:milk-speed'
 } as const;
+
+const SPEED_OPTIONS: SpeedOption[] = [
+  { label: '0.5x', multiplier: 0.5, tint: 0x8fe8ff },
+  { label: '1x', multiplier: 1, tint: 0x7ef08d },
+  { label: '1.5x', multiplier: 1.5, tint: 0xffd166 },
+  { label: '2x', multiplier: 2, tint: 0xff7aa8 }
+];
 
 export class KittyMilkRunScene extends Phaser.Scene {
   private cat!: Phaser.GameObjects.Image;
@@ -91,6 +113,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private unlockedCosmetics = new Set<string>(['tabby']);
   private shopCards: ShopCard[] = [];
   private shopUiElements: VisibleGameObject[] = [];
+  private speedButtons: SpeedButton[] = [];
+  private speedMultiplier = 1;
   private shopPointerHandled = false;
   private controlsLocked = false;
   private hasCrazyHair = false;
@@ -277,6 +301,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.overlay.add([panel, this.titleText, shopTitle, this.shopBasketText, this.instructionText]);
     this.shopUiElements = [shopTitle, this.shopBasketText];
     this.createShopCards();
+    this.createSpeedSelector();
     this.updateShopUi();
     this.setShopUiVisible(true);
   }
@@ -324,18 +349,18 @@ export class KittyMilkRunScene extends Phaser.Scene {
     if (this.unlockedCosmetics.has(option.id)) {
       this.selectedCosmeticId = option.id;
       this.cat.setTexture(option.run1);
-      playGameSound(this, 'shopEquip');
+      playBasketSound('equip');
     } else if (this.yarnBasket >= option.cost) {
       this.yarnBasket -= option.cost;
       this.unlockedCosmetics.add(option.id);
       this.selectedCosmeticId = option.id;
       this.cat.setTexture(option.run1);
       this.floatText('New kitty!', GAME_WIDTH / 2, 128, '#fff2a1');
-      playGameSound(this, 'shopBuy');
+      playBasketSound('buy');
     } else {
       this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
       this.cameras.main.shake(90, 0.004);
-      playGameSound(this, 'shopDeny');
+      playBasketSound('deny');
     }
     this.saveShopState();
     this.updateHud();
@@ -351,6 +376,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       card.statusText.setText(selected ? 'Equipped' : unlocked ? 'Equip' : 'Buy');
       this.drawShopCard(card.background, selected, unlocked);
     }
+    this.updateSpeedUi();
   }
 
   private drawShopCard(graphics: Phaser.GameObjects.Graphics, selected: boolean, unlocked: boolean) {
@@ -361,6 +387,82 @@ export class KittyMilkRunScene extends Phaser.Scene {
     graphics.strokeRoundedRect(-71, -92, 142, 184, 16);
     graphics.fillStyle(0xffffff, 0.16);
     graphics.fillRoundedRect(-54, -78, 108, 72, 14);
+  }
+
+  private createSpeedSelector() {
+    const speedTitle = this.add
+      .text(-350, 146, 'Milk speed', this.textStyle(20, '#fffad0'))
+      .setOrigin(0, 0.5)
+      .setStroke('#17347e', 5);
+    this.overlay.add(speedTitle);
+    this.shopUiElements.push(speedTitle);
+
+    this.speedButtons = [];
+    SPEED_OPTIONS.forEach((option, index) => {
+      const button = this.add.container(-130 + index * 92, 146);
+      const background = this.add.graphics();
+      const yarn = this.add.image(-24, 0, Phaser.Math.RND.pick([ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple])).setScale(0.42);
+      const labelText = this.add.text(17, 0, option.label, this.textStyle(17, '#ffffff')).setOrigin(0.5);
+      const clickZone = this.add.zone(0, 0, 82, 46).setInteractive({ useHandCursor: true });
+      button.add([background, yarn, labelText, clickZone]);
+      clickZone.on('pointerup', () => {
+        this.shopPointerHandled = true;
+        this.setSpeedMultiplier(option.multiplier);
+      });
+      clickZone.on('pointerover', () => {
+        this.tweens.add({ targets: button, y: 140, duration: 90, ease: 'Sine.easeOut' });
+      });
+      clickZone.on('pointerout', () => {
+        this.tweens.add({ targets: button, y: 146, duration: 90, ease: 'Sine.easeOut' });
+      });
+      this.overlay.add(button);
+      this.shopUiElements.push(button);
+      this.speedButtons.push({ option, container: button, background, yarn, labelText });
+    });
+
+    this.updateSpeedUi();
+  }
+
+  private setSpeedMultiplier(multiplier: number) {
+    if (this.phase !== 'start') return;
+    this.speedMultiplier = multiplier;
+    this.speed = this.getStartingSpeed();
+    playBasketSound('equip');
+    this.saveShopState();
+    this.updateSpeedUi();
+    this.floatText(`${multiplier}x speed`, GAME_WIDTH / 2, 160, '#fff2a1');
+  }
+
+  private updateSpeedUi() {
+    for (const button of this.speedButtons) {
+      const selected = button.option.multiplier === this.speedMultiplier;
+      this.drawSpeedButton(button.background, selected, button.option.tint);
+      button.labelText.setColor(selected ? '#17347e' : '#ffffff');
+      button.yarn.setScale(selected ? 0.54 : 0.42);
+      button.yarn.setTint(selected ? 0xffffff : button.option.tint);
+      this.tweens.killTweensOf(button.yarn);
+      if (selected && this.phase === 'start') {
+        this.tweens.add({
+          targets: button.yarn,
+          angle: 360,
+          duration: 900,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      } else {
+        button.yarn.setAngle(0);
+      }
+    }
+  }
+
+  private drawSpeedButton(graphics: Phaser.GameObjects.Graphics, selected: boolean, tint: number) {
+    graphics.clear();
+    graphics.fillStyle(selected ? tint : 0x17347e, selected ? 0.96 : 0.88);
+    graphics.fillRoundedRect(-39, -22, 78, 44, 16);
+    graphics.lineStyle(selected ? 5 : 3, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.72);
+    graphics.strokeRoundedRect(-39, -22, 78, 44, 16);
+    graphics.fillStyle(0xffffff, selected ? 0.34 : 0.12);
+    graphics.fillCircle(-24, 0, 18);
   }
 
   private createParticles() {
@@ -407,7 +509,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.currentLane = 1;
     this.hearts = INITIAL_HEARTS;
     this.yarnScore = 0;
-    this.speed = INITIAL_SPEED;
+    this.speed = this.getStartingSpeed();
     this.distance = 0;
     this.spawnTimer = 0;
     this.yarnTimer = 0;
@@ -426,10 +528,15 @@ export class KittyMilkRunScene extends Phaser.Scene {
       this.unlockedCosmetics = new Set(['tabby', ...unlocked.filter((id) => COSMETICS.some((option) => option.id === id))]);
       const selected = localStorage.getItem(STORAGE_KEYS.selected) ?? 'tabby';
       this.selectedCosmeticId = this.unlockedCosmetics.has(selected) ? selected : 'tabby';
+      const storedSpeed = Number.parseFloat(localStorage.getItem(STORAGE_KEYS.speed) ?? '1');
+      this.speedMultiplier = SPEED_OPTIONS.some((option) => option.multiplier === storedSpeed) ? storedSpeed : 1;
+      this.speed = this.getStartingSpeed();
     } catch {
       this.yarnBasket = 0;
       this.selectedCosmeticId = 'tabby';
       this.unlockedCosmetics = new Set(['tabby']);
+      this.speedMultiplier = 1;
+      this.speed = this.getStartingSpeed();
     }
   }
 
@@ -438,6 +545,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       localStorage.setItem(STORAGE_KEYS.basket, String(this.yarnBasket));
       localStorage.setItem(STORAGE_KEYS.selected, this.selectedCosmeticId);
       localStorage.setItem(STORAGE_KEYS.unlocked, JSON.stringify([...this.unlockedCosmetics]));
+      localStorage.setItem(STORAGE_KEYS.speed, String(this.speedMultiplier));
     } catch {
       // Local storage is a convenience for the shop loop; the game remains playable without it.
     }
@@ -453,6 +561,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private startGame() {
     this.phase = 'playing';
+    this.speed = this.getStartingSpeed();
     this.cat.setTexture(this.getSelectedCosmetic().run1);
     this.hasCrazyHair = false;
     this.crazyHair.setVisible(false);
@@ -743,8 +852,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.yarnScore += 1;
     this.yarnBasket += 1;
     this.saveShopState();
-    this.speed = Math.min(MAX_SPEED, this.speed + 5);
-    playGameSound(this, 'yarn');
+    this.speed = Math.min(this.getMaxSpeed(), this.speed + 5 * this.speedMultiplier);
+    playBasketSound('collect');
     this.emitter.explode(16, x, y);
     this.floatText('+1 yarn', x, y - 20, '#fff2a1');
     this.updateHud();
@@ -809,6 +918,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.titleText.setText(title);
     this.instructionText.setText(instructions);
     this.setShopUiVisible(false);
+    this.updateSpeedUi();
   }
 
   private setShopUiVisible(visible: boolean) {
@@ -860,6 +970,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private getSelectedCosmetic() {
     return COSMETICS.find((option) => option.id === this.selectedCosmeticId) ?? COSMETICS[0];
+  }
+
+  private getStartingSpeed() {
+    return INITIAL_SPEED * this.speedMultiplier;
+  }
+
+  private getMaxSpeed() {
+    return MAX_SPEED * this.speedMultiplier;
   }
 
   private textStyle(fontSize: number, color: string): Phaser.Types.GameObjects.Text.TextStyle {

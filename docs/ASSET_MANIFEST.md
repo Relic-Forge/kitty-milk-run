@@ -29,10 +29,10 @@ All runtime art is generated local SVG under `public/assets/` and loaded by `src
 
 All runtime audio is vendored under `public/assets/audio/`, loaded by `src/game/assets.ts`, and selected by `src/game/sound.ts` with small randomized pitch changes.
 
-- `cat-mew-food.wav`, `cat-mew-purr.wav`, `cat-mew-purr-2.wav`, `cat-soft-mew.wav` - cat mews from OpenGameArt `Cat Purr & Meow` by Kerzoven, licensed CC0. Source: https://opengameart.org/content/cat-purr-meow
+- `cat-mew-food.wav`, `cat-mew-purr.wav`, `cat-mew-purr-2.wav`, `cat-soft-mew.wav`, `cat-purr-active.wav` - cat mews and purr from OpenGameArt `Cat Purr & Meow` by Kerzoven, licensed CC0. Source: https://opengameart.org/content/cat-purr-meow
 - `cat-pop-meow.ogg` - `Meow` from OpenGameArt / Liberated Pixel Cup by IgnasD, licensed CC0. Source: https://lpc.opengameart.org/content/meow
 - `cat-lab-meow.mp3` - `Meowing Cat Made in LabChirp` by Traceletz, licensed CC0. Source: https://opengameart.org/content/meowing-cat-made-in-labchirp
 
 ## Code-Native Elements
 
-- Track, lane markers, finish stripe, HUD panel, overlay panels, scoring text, progress text, collision boxes, fallback tones, and game state remain code-native in Phaser.
+- Track, lane markers, finish stripe, HUD panel, overlay panels, scoring text, progress text, collision boxes, speed selector UI, synthesized basket-pack sounds, fallback tones, and game state remain code-native in Phaser.

@@ -39,7 +39,8 @@ export const SOUNDS = {
   catMewPurr2: 'cat-mew-purr-2',
   catSoftMew: 'cat-soft-mew',
   catPopMeow: 'cat-pop-meow',
-  catLabMeow: 'cat-lab-meow'
+  catLabMeow: 'cat-lab-meow',
+  catPurrActive: 'cat-purr-active'
 } as const;
 
 export type AssetKey = (typeof ASSETS)[keyof typeof ASSETS];
@@ -84,4 +85,5 @@ export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.audio(SOUNDS.catSoftMew, '/assets/audio/cat-soft-mew.wav');
   scene.load.audio(SOUNDS.catPopMeow, '/assets/audio/cat-pop-meow.ogg');
   scene.load.audio(SOUNDS.catLabMeow, '/assets/audio/cat-lab-meow.mp3');
+  scene.load.audio(SOUNDS.catPurrActive, '/assets/audio/cat-purr-active.wav');
 }
