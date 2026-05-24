@@ -7,10 +7,11 @@ export const CAT_Y = 420;
 export const INITIAL_HEARTS = 3;
 export const INITIAL_SPEED = 238;
 export const MAX_SPEED = 344;
-export const FINISH_DISTANCE = 4200;
+export const FINISH_DISTANCE = 8400;
 
 export const OBSTACLE_SPAWN_MS = 880;
 export const YARN_SPAWN_MS = 620;
+export const SPAWN_CLEARANCE_Y = 185;
 
 export const DEPTHS = {
   background: 0,
@@ -27,4 +28,3 @@ export const DEPTHS = {
 
 export type GamePhase = 'start' | 'playing' | 'won' | 'lost';
 export type ObstacleType = 'dog' | 'cucumber' | 'foil';
-

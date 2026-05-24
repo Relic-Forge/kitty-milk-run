@@ -11,6 +11,7 @@ import {
   LANES,
   MAX_SPEED,
   OBSTACLE_SPAWN_MS,
+  SPAWN_CLEARANCE_Y,
   YARN_SPAWN_MS,
   type GamePhase,
   type ObstacleType
@@ -176,7 +177,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private createFinishObjects() {
-    this.finishLine = this.add.container(GAME_WIDTH / 2, -260).setDepth(DEPTHS.finish).setVisible(false);
+    this.finishLine = this.add.container(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE).setDepth(DEPTHS.finish);
     const line = this.add.graphics();
     line.fillStyle(0xffffff, 1);
     line.fillRect(-250, -16, 500, 32);
@@ -190,7 +191,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.finishLine.add(this.add.image(-290, -10, ASSETS.finishFlag));
     this.finishLine.add(this.add.image(290, -10, ASSETS.finishFlag).setFlipX(true));
 
-    this.milkBottle = this.add.image(GAME_WIDTH / 2, -350, ASSETS.milkBottle).setDepth(DEPTHS.finish).setVisible(false);
+    this.milkBottle = this.add.image(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE - 120, ASSETS.milkBottle).setDepth(DEPTHS.finish);
   }
 
   private createOverlay() {
@@ -319,7 +320,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private spawnObstacle() {
-    const lane = this.pickSpawnLane(true);
+    const lane = this.pickSafeLane(this.obstacles, this.yarns, -70, true);
+    if (lane === undefined) return;
     const kind: ObstacleType = this.distance > 1850 && Math.random() < 0.15 ? 'foil' : Phaser.Math.RND.pick(['dog', 'cucumber']);
     const texture = kind === 'dog' ? ASSETS.dog : kind === 'cucumber' ? ASSETS.cucumber : ASSETS.foil;
     const obstacle = this.add.image(LANES[lane], -70, texture) as RunnerSprite;
@@ -343,7 +345,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private spawnYarn() {
-    const lane = this.pickSpawnLane(false);
+    const lane = this.pickSafeLane(this.yarns, this.obstacles, -50, false);
+    if (lane === undefined) return;
     const texture = Phaser.Math.RND.pick([ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple]);
     const yarn = this.add.image(LANES[lane], -50, texture) as RunnerSprite;
     yarn.laneIndex = lane;
@@ -360,12 +363,33 @@ export class KittyMilkRunScene extends Phaser.Scene {
     });
   }
 
-  private pickSpawnLane(avoidLastObstacle: boolean) {
-    const lanes = [0, 1, 2];
+  private pickSafeLane(
+    sameKindGroup: Phaser.GameObjects.Group,
+    blockingGroup: Phaser.GameObjects.Group,
+    spawnY: number,
+    avoidLastObstacle: boolean
+  ) {
+    let lanes = [0, 1, 2];
     if (avoidLastObstacle && this.nextBlockedLane !== undefined) {
       Phaser.Utils.Array.Remove(lanes, this.nextBlockedLane);
     }
+
+    lanes = lanes.filter((lane) => {
+      return (
+        !this.hasNearbyRunnerInLane(blockingGroup, lane, spawnY, SPAWN_CLEARANCE_Y) &&
+        !this.hasNearbyRunnerInLane(sameKindGroup, lane, spawnY, SPAWN_CLEARANCE_Y * 0.6)
+      );
+    });
+
+    if (lanes.length === 0) return undefined;
     return Phaser.Math.RND.pick(lanes);
+  }
+
+  private hasNearbyRunnerInLane(group: Phaser.GameObjects.Group, lane: number, y: number, clearance: number) {
+    return group.getChildren().some((child) => {
+      const item = child as RunnerSprite;
+      return item.active && item.laneIndex === lane && Math.abs(item.y - y) < clearance;
+    });
   }
 
   private updateRunnerGroup(
@@ -452,13 +476,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private updateFinish() {
-    const remaining = FINISH_DISTANCE - this.distance;
-    if (remaining < 700) {
-      this.finishLine.setVisible(true);
-      this.milkBottle.setVisible(true);
-      this.finishLine.y = remaining - 90;
-      this.milkBottle.y = remaining - 210;
-    }
+    const finishY = CAT_Y - (FINISH_DISTANCE - this.distance);
+    this.finishLine.y = finishY;
+    this.milkBottle.y = finishY - 120;
   }
 
   private winGame() {
@@ -471,7 +491,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
     const bowl = this.add.image(GAME_WIDTH / 2, 332, ASSETS.milkBowl).setDepth(DEPTHS.effects);
     this.cat.setPosition(GAME_WIDTH / 2 - 95, 388).setAngle(-4).setTexture(ASSETS.catRun1);
-    this.milkBottle.setPosition(GAME_WIDTH / 2 + 110, 292).setVisible(true);
+    this.milkBottle.setPosition(GAME_WIDTH / 2 + 110, 292);
     this.finishLine.setVisible(false);
 
     this.showOverlay('MILK FOUND!', `Yarn collected: ${this.yarnScore}\nKitty got the milk.\nPress Space to play again.`);
