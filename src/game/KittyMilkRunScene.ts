@@ -16,7 +16,7 @@ import {
   type GamePhase,
   type ObstacleType
 } from './constants';
-import { playToneSet } from './sound';
+import { playGameSound, playToneSet } from './sound';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
@@ -34,10 +34,13 @@ type CosmeticOption = {
 
 type ShopCard = {
   option: CosmeticOption;
+  container: Phaser.GameObjects.Container;
   background: Phaser.GameObjects.Graphics;
   statusText: Phaser.GameObjects.Text;
   priceText: Phaser.GameObjects.Text;
 };
+
+type VisibleGameObject = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible;
 
 const COSMETICS: CosmeticOption[] = [
   { id: 'tabby', name: 'Sunny Tabby', cost: 0, run1: ASSETS.catRun1, run2: ASSETS.catRun2, hit: ASSETS.catHit },
@@ -87,6 +90,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private selectedCosmeticId = 'tabby';
   private unlockedCosmetics = new Set<string>(['tabby']);
   private shopCards: ShopCard[] = [];
+  private shopUiElements: VisibleGameObject[] = [];
   private shopPointerHandled = false;
   private controlsLocked = false;
   private hasCrazyHair = false;
@@ -271,8 +275,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .setStroke('#17347e', 5);
 
     this.overlay.add([panel, this.titleText, shopTitle, this.shopBasketText, this.instructionText]);
+    this.shopUiElements = [shopTitle, this.shopBasketText];
     this.createShopCards();
     this.updateShopUi();
+    this.setShopUiVisible(true);
   }
 
   private createShopCards() {
@@ -308,7 +314,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
         this.tweens.add({ targets: card, scale: 1, duration: 90, ease: 'Sine.easeOut' });
       });
       this.overlay.add(card);
-      this.shopCards.push({ option, background, statusText, priceText });
+      this.shopUiElements.push(card);
+      this.shopCards.push({ option, container: card, background, statusText, priceText });
     });
   }
 
@@ -317,16 +324,18 @@ export class KittyMilkRunScene extends Phaser.Scene {
     if (this.unlockedCosmetics.has(option.id)) {
       this.selectedCosmeticId = option.id;
       this.cat.setTexture(option.run1);
+      playGameSound(this, 'shopEquip');
     } else if (this.yarnBasket >= option.cost) {
       this.yarnBasket -= option.cost;
       this.unlockedCosmetics.add(option.id);
       this.selectedCosmeticId = option.id;
       this.cat.setTexture(option.run1);
       this.floatText('New kitty!', GAME_WIDTH / 2, 128, '#fff2a1');
-      playToneSet('yarn');
+      playGameSound(this, 'shopBuy');
     } else {
       this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
       this.cameras.main.shake(90, 0.004);
+      playGameSound(this, 'shopDeny');
     }
     this.saveShopState();
     this.updateHud();
@@ -447,7 +456,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.cat.setTexture(this.getSelectedCosmetic().run1);
     this.hasCrazyHair = false;
     this.crazyHair.setVisible(false);
-    playToneSet('start');
+    playGameSound(this, 'start');
     this.tweens.add({
       targets: this.overlay,
       alpha: 0,
@@ -590,7 +599,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.invulnerableUntil = time + 700;
     item.destroy();
     this.hearts -= 1;
-    playToneSet('bonk');
+    playGameSound(this, 'catHit');
     this.updateHud();
     this.emitter.explode(12, this.cat.x, this.cat.y - 12);
 
@@ -625,7 +634,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.controlsLocked = true;
     const startX = this.cat.x;
     item.destroy();
-    playToneSet('bonk');
+    playGameSound(this, 'foilScare');
     this.cameras.main.shake(180, 0.014);
     this.emitter.explode(16, this.cat.x, this.cat.y - 18);
     this.floatText('Tinfoil!', this.cat.x, this.cat.y - 54, '#fff2a1');
@@ -665,7 +674,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     const vacuumX = item.x;
     const vacuumY = item.y;
     item.destroy();
-    playToneSet('bonk');
+    playGameSound(this, 'vacuum');
     this.cameras.main.shake(260, 0.018);
     this.emitter.explode(18, vacuumX, vacuumY);
     this.floatText('WHOOOOSH!', vacuumX, vacuumY - 50, '#dff7ff');
@@ -735,7 +744,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.yarnBasket += 1;
     this.saveShopState();
     this.speed = Math.min(MAX_SPEED, this.speed + 5);
-    playToneSet('yarn');
+    playGameSound(this, 'yarn');
     this.emitter.explode(16, x, y);
     this.floatText('+1 yarn', x, y - 20, '#fff2a1');
     this.updateHud();
@@ -765,6 +774,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.phase = 'won';
     this.obstacles.clear(true, true);
     this.yarns.clear(true, true);
+    playGameSound(this, 'win');
     playToneSet('win');
     this.cameras.main.flash(250, 255, 255, 210);
 
@@ -775,7 +785,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.finishLine.setVisible(false);
 
     this.showOverlay('MILK FOUND!', `Yarn collected: ${this.yarnScore}\nKitty got the milk.\nPress Space to play again.`);
-    this.overlay.setY(164).setAlpha(1).setVisible(true);
+    this.overlay.setY(GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
     this.tweens.add({ targets: [this.cat, bowl, this.milkBottle], y: '+=8', duration: 260, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.time.addEvent({
       delay: 180,
@@ -798,6 +808,11 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private showOverlay(title: string, instructions: string) {
     this.titleText.setText(title);
     this.instructionText.setText(instructions);
+    this.setShopUiVisible(false);
+  }
+
+  private setShopUiVisible(visible: boolean) {
+    this.shopUiElements.forEach((element) => element.setVisible(visible));
   }
 
   private updateHud() {

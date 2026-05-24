@@ -33,7 +33,17 @@ export const ASSETS = {
   foil: 'foil'
 } as const;
 
+export const SOUNDS = {
+  catMewFood: 'cat-mew-food',
+  catMewPurr: 'cat-mew-purr',
+  catMewPurr2: 'cat-mew-purr-2',
+  catSoftMew: 'cat-soft-mew',
+  catPopMeow: 'cat-pop-meow',
+  catLabMeow: 'cat-lab-meow'
+} as const;
+
 export type AssetKey = (typeof ASSETS)[keyof typeof ASSETS];
+export type SoundKey = (typeof SOUNDS)[keyof typeof SOUNDS];
 
 export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.svg(ASSETS.catRun1, '/assets/cat-run-1.svg', { width: 96, height: 88 });
@@ -68,4 +78,10 @@ export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.svg(ASSETS.grassTuft, '/assets/grass-tuft.svg', { width: 54, height: 38 });
   scene.load.svg(ASSETS.sparkle, '/assets/sparkle.svg', { width: 44, height: 44 });
   scene.load.svg(ASSETS.finishFlag, '/assets/finish-flag.svg', { width: 76, height: 76 });
+  scene.load.audio(SOUNDS.catMewFood, '/assets/audio/cat-mew-food.wav');
+  scene.load.audio(SOUNDS.catMewPurr, '/assets/audio/cat-mew-purr.wav');
+  scene.load.audio(SOUNDS.catMewPurr2, '/assets/audio/cat-mew-purr-2.wav');
+  scene.load.audio(SOUNDS.catSoftMew, '/assets/audio/cat-soft-mew.wav');
+  scene.load.audio(SOUNDS.catPopMeow, '/assets/audio/cat-pop-meow.ogg');
+  scene.load.audio(SOUNDS.catLabMeow, '/assets/audio/cat-lab-meow.mp3');
 }

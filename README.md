@@ -35,7 +35,7 @@ Open the local Vite URL.
 - Milk dash progress HUD
 - Milk finish line and replayable win cutscene
 - Lose/retry state
-- Tiny Web Audio sound effects for start, yarn, bonk, and win
+- CC0 cat sound effects for hits, tinfoil scares, vacuum suction, shop actions, yarn pickups, start, and win, with tiny Web Audio fallback tones
 - Product docs for Codex handoff
 
 ## Repo Structure
@@ -44,6 +44,6 @@ Open the local Vite URL.
 - `src/game/KittyMilkRunScene.ts` contains the playable race.
 - `src/game/assets.ts` loads the SVG asset catalog.
 - `src/game/constants.ts` keeps game tuning values together.
-- `src/game/sound.ts` provides optional browser-native sound effects.
+- `src/game/sound.ts` randomizes cat sound effects and provides optional browser-native fallback tones.
 - `public/assets/` contains generated game artwork.
 - `docs/` contains PRD, art direction, build spec, and roadmap.
