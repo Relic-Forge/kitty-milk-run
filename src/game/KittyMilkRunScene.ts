@@ -23,6 +23,36 @@ type RunnerSprite = Phaser.GameObjects.Image & {
   kind?: ObstacleType | 'yarn';
 };
 
+type CosmeticOption = {
+  id: string;
+  name: string;
+  cost: number;
+  run1: string;
+  run2: string;
+  hit: string;
+};
+
+type ShopCard = {
+  option: CosmeticOption;
+  background: Phaser.GameObjects.Graphics;
+  statusText: Phaser.GameObjects.Text;
+  priceText: Phaser.GameObjects.Text;
+};
+
+const COSMETICS: CosmeticOption[] = [
+  { id: 'tabby', name: 'Sunny Tabby', cost: 0, run1: ASSETS.catRun1, run2: ASSETS.catRun2, hit: ASSETS.catHit },
+  { id: 'gray', name: 'Gray Moon', cost: 100, run1: ASSETS.catGrayRun1, run2: ASSETS.catGrayRun2, hit: ASSETS.catGrayHit },
+  { id: 'pink', name: 'Pink Sparkle', cost: 135, run1: ASSETS.catPinkRun1, run2: ASSETS.catPinkRun2, hit: ASSETS.catPinkHit },
+  { id: 'tux', name: 'Tuxedo Pop', cost: 175, run1: ASSETS.catTuxRun1, run2: ASSETS.catTuxRun2, hit: ASSETS.catTuxHit },
+  { id: 'rainbow', name: 'Rainbow Scarf', cost: 250, run1: ASSETS.catRainbowRun1, run2: ASSETS.catRainbowRun2, hit: ASSETS.catRainbowHit }
+];
+
+const STORAGE_KEYS = {
+  basket: 'kitty-milk-run:yarn-basket',
+  selected: 'kitty-milk-run:selected-cat',
+  unlocked: 'kitty-milk-run:unlocked-cats'
+} as const;
+
 export class KittyMilkRunScene extends Phaser.Scene {
   private cat!: Phaser.GameObjects.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -43,13 +73,20 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private titleText!: Phaser.GameObjects.Text;
   private instructionText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
-  private heartsText!: Phaser.GameObjects.Text;
+  private basketText!: Phaser.GameObjects.Text;
+  private shopBasketText!: Phaser.GameObjects.Text;
   private distanceText!: Phaser.GameObjects.Text;
+  private heartIcons: Phaser.GameObjects.Image[] = [];
   private obstacles!: Phaser.GameObjects.Group;
   private yarns!: Phaser.GameObjects.Group;
   private scrollables!: Phaser.GameObjects.Group;
   private emitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private laneSwipeStart: Phaser.Math.Vector2 | undefined;
+  private yarnBasket = 0;
+  private selectedCosmeticId = 'tabby';
+  private unlockedCosmetics = new Set<string>(['tabby']);
+  private shopCards: ShopCard[] = [];
+  private shopPointerHandled = false;
 
   constructor() {
     super('KittyMilkRunScene');
@@ -61,6 +98,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   create() {
     this.resetRunState();
+    this.loadShopState();
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys('A,D') as Record<'left' | 'right', Phaser.Input.Keyboard.Key>;
     this.obstacles = this.add.group();
@@ -141,12 +179,13 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private createHud() {
     const panel = this.add.graphics().setDepth(DEPTHS.hud);
     panel.fillStyle(0x285a3a, 0.82);
-    panel.fillRoundedRect(18, 16, 250, 95, 18);
+    panel.fillRoundedRect(18, 16, 270, 116, 18);
     panel.lineStyle(4, 0xffffff, 0.82);
-    panel.strokeRoundedRect(18, 16, 250, 95, 18);
+    panel.strokeRoundedRect(18, 16, 270, 116, 18);
 
-    this.heartsText = this.add.text(38, 30, '', this.textStyle(26, '#fff2f2')).setDepth(DEPTHS.hud);
-    this.scoreText = this.add.text(38, 68, '', this.textStyle(23, '#fffad0')).setDepth(DEPTHS.hud);
+    this.heartIcons = [0, 1, 2].map((index) => this.add.image(48 + index * 54, 45, ASSETS.heartFull).setDepth(DEPTHS.hud));
+    this.scoreText = this.add.text(38, 72, '', this.textStyle(20, '#fffad0')).setDepth(DEPTHS.hud);
+    this.basketText = this.add.text(38, 96, '', this.textStyle(18, '#dff7ff')).setDepth(DEPTHS.hud);
     this.distanceText = this.add
       .text(GAME_WIDTH - 40, 28, '', { ...this.textStyle(20, '#ffffff'), align: 'right' })
       .setOrigin(1, 0)
@@ -155,7 +194,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private createPlayer() {
-    this.cat = this.add.image(LANES[this.currentLane], CAT_Y, ASSETS.catRun1).setDepth(DEPTHS.player).setScale(0.95);
+    this.cat = this.add.image(LANES[this.currentLane], CAT_Y, this.getSelectedCosmetic().run1).setDepth(DEPTHS.player).setScale(0.95);
     this.tweens.add({
       targets: this.cat,
       y: CAT_Y - 8,
@@ -170,7 +209,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
       loop: true,
       callback: () => {
         if (this.phase === 'playing') {
-          this.cat.setTexture(this.cat.texture.key === ASSETS.catRun1 ? ASSETS.catRun2 : ASSETS.catRun1);
+          const cosmetic = this.getSelectedCosmetic();
+          this.cat.setTexture(this.cat.texture.key === cosmetic.run1 ? cosmetic.run2 : cosmetic.run1);
         }
       }
     });
@@ -198,14 +238,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.overlay = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(DEPTHS.overlay);
     const panel = this.add.graphics();
     panel.fillStyle(0x2d5fbd, 0.82);
-    panel.fillRoundedRect(-318, -154, 636, 292, 28);
+    panel.fillRoundedRect(-425, -244, 850, 486, 28);
     panel.lineStyle(6, 0xffffff, 0.9);
-    panel.strokeRoundedRect(-318, -154, 636, 292, 28);
+    panel.strokeRoundedRect(-425, -244, 850, 486, 28);
 
     this.titleText = this.add
-      .text(0, -98, 'KITTY MILK RUN', {
+      .text(0, -202, 'KITTY MILK RUN', {
         fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: '56px',
+        fontSize: '48px',
         color: '#ffffff',
         align: 'center'
       })
@@ -213,9 +253,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .setStroke('#17347e', 8);
 
     this.instructionText = this.add
-      .text(0, 6, 'Dodge dogs and cucumbers.\nCollect yarn. Reach the milk!\nSpace to start. Arrow keys or A/D to move.', {
+      .text(0, 204, 'Click a cat to buy or equip. Space starts the milk run.', {
         fontFamily: 'Arial, sans-serif',
-        fontSize: '25px',
+        fontSize: '22px',
         color: '#ffffff',
         align: 'center',
         lineSpacing: 8
@@ -223,18 +263,97 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
 
-    const catPreview = this.add.image(-210, 108, ASSETS.catRun1).setScale(0.68).setAngle(-5);
-    const milkPreview = this.add.image(226, 102, ASSETS.milkBottle).setScale(0.48).setAngle(5);
-    this.overlay.add([panel, catPreview, milkPreview, this.titleText, this.instructionText]);
+    const shopTitle = this.add
+      .text(-350, -150, 'Custom Kitty Shop', this.textStyle(24, '#fffad0'))
+      .setOrigin(0, 0.5)
+      .setStroke('#17347e', 5);
+    this.shopBasketText = this.add
+      .text(350, -150, '', { ...this.textStyle(22, '#dff7ff'), align: 'right' })
+      .setOrigin(1, 0.5)
+      .setStroke('#17347e', 5);
 
-    this.tweens.add({
-      targets: [catPreview, milkPreview],
-      y: '+=7',
-      duration: 340,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
+    this.overlay.add([panel, this.titleText, shopTitle, this.shopBasketText, this.instructionText]);
+    this.createShopCards();
+    this.updateShopUi();
+  }
+
+  private createShopCards() {
+    this.shopCards = [];
+    COSMETICS.forEach((option, index) => {
+      const x = -320 + index * 160;
+      const y = 20;
+      const card = this.add.container(x, y);
+      const background = this.add.graphics();
+      const preview = this.add.image(0, -48, option.run1).setScale(0.58);
+      const nameText = this.add
+        .text(0, 8, option.name, {
+          fontFamily: 'Arial Black, Arial, sans-serif',
+          fontSize: '15px',
+          color: '#ffffff',
+          align: 'center',
+          wordWrap: { width: 124 }
+        })
+        .setOrigin(0.5)
+        .setStroke('#17347e', 4);
+      const priceText = this.add.text(0, 48, '', this.textStyle(16, '#fffad0')).setOrigin(0.5);
+      const statusText = this.add.text(0, 82, '', this.textStyle(16, '#ffffff')).setOrigin(0.5);
+      const clickZone = this.add.zone(0, 0, 152, 194).setInteractive({ useHandCursor: true });
+      card.add([background, preview, nameText, priceText, statusText, clickZone]);
+      clickZone.on('pointerup', () => {
+        this.shopPointerHandled = true;
+        this.buyOrEquip(option);
+      });
+      clickZone.on('pointerover', () => {
+        this.tweens.add({ targets: card, scale: 1.04, duration: 90, ease: 'Sine.easeOut' });
+      });
+      clickZone.on('pointerout', () => {
+        this.tweens.add({ targets: card, scale: 1, duration: 90, ease: 'Sine.easeOut' });
+      });
+      this.overlay.add(card);
+      this.shopCards.push({ option, background, statusText, priceText });
     });
+  }
+
+  private buyOrEquip(option: CosmeticOption) {
+    if (this.phase !== 'start') return;
+    if (this.unlockedCosmetics.has(option.id)) {
+      this.selectedCosmeticId = option.id;
+      this.cat.setTexture(option.run1);
+    } else if (this.yarnBasket >= option.cost) {
+      this.yarnBasket -= option.cost;
+      this.unlockedCosmetics.add(option.id);
+      this.selectedCosmeticId = option.id;
+      this.cat.setTexture(option.run1);
+      this.floatText('New kitty!', GAME_WIDTH / 2, 128, '#fff2a1');
+      playToneSet('yarn');
+    } else {
+      this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
+      this.cameras.main.shake(90, 0.004);
+    }
+    this.saveShopState();
+    this.updateHud();
+  }
+
+  private updateShopUi() {
+    if (!this.shopBasketText) return;
+    this.shopBasketText.setText(`Yarn basket: ${this.yarnBasket}`);
+    for (const card of this.shopCards) {
+      const unlocked = this.unlockedCosmetics.has(card.option.id);
+      const selected = this.selectedCosmeticId === card.option.id;
+      card.priceText.setText(card.option.cost === 0 ? 'Free' : `${card.option.cost} yarn`);
+      card.statusText.setText(selected ? 'Equipped' : unlocked ? 'Equip' : 'Buy');
+      this.drawShopCard(card.background, selected, unlocked);
+    }
+  }
+
+  private drawShopCard(graphics: Phaser.GameObjects.Graphics, selected: boolean, unlocked: boolean) {
+    graphics.clear();
+    graphics.fillStyle(selected ? 0x53d36d : unlocked ? 0x276fbf : 0x17347e, 0.92);
+    graphics.fillRoundedRect(-71, -92, 142, 184, 16);
+    graphics.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.78);
+    graphics.strokeRoundedRect(-71, -92, 142, 184, 16);
+    graphics.fillStyle(0xffffff, 0.16);
+    graphics.fillRoundedRect(-54, -78, 108, 72, 14);
   }
 
   private createParticles() {
@@ -265,7 +384,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
       this.laneSwipeStart = undefined;
 
       if (this.phase !== 'playing') {
-        this.handleSpace();
+        if (!this.shopPointerHandled) this.handleSpace();
+        this.shopPointerHandled = false;
         return;
       }
 
@@ -289,6 +409,31 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.laneSwipeStart = undefined;
   }
 
+  private loadShopState() {
+    try {
+      const storedBasket = localStorage.getItem(STORAGE_KEYS.basket) ?? localStorage.getItem('kitty-milk-run:yarn-wallet');
+      this.yarnBasket = Number.parseInt(storedBasket ?? '0', 10) || 0;
+      const unlocked = JSON.parse(localStorage.getItem(STORAGE_KEYS.unlocked) ?? '["tabby"]') as string[];
+      this.unlockedCosmetics = new Set(['tabby', ...unlocked.filter((id) => COSMETICS.some((option) => option.id === id))]);
+      const selected = localStorage.getItem(STORAGE_KEYS.selected) ?? 'tabby';
+      this.selectedCosmeticId = this.unlockedCosmetics.has(selected) ? selected : 'tabby';
+    } catch {
+      this.yarnBasket = 0;
+      this.selectedCosmeticId = 'tabby';
+      this.unlockedCosmetics = new Set(['tabby']);
+    }
+  }
+
+  private saveShopState() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.basket, String(this.yarnBasket));
+      localStorage.setItem(STORAGE_KEYS.selected, this.selectedCosmeticId);
+      localStorage.setItem(STORAGE_KEYS.unlocked, JSON.stringify([...this.unlockedCosmetics]));
+    } catch {
+      // Local storage is a convenience for the shop loop; the game remains playable without it.
+    }
+  }
+
   private handleSpace() {
     if (this.phase === 'start') {
       this.startGame();
@@ -299,6 +444,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private startGame() {
     this.phase = 'playing';
+    this.cat.setTexture(this.getSelectedCosmetic().run1);
     playToneSet('start');
     this.tweens.add({
       targets: this.overlay,
@@ -424,7 +570,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.updateHud();
     this.emitter.explode(12, this.cat.x, this.cat.y - 12);
 
-    this.cat.setTexture(ASSETS.catHit);
+    this.breakHeartIcon(this.hearts);
+    this.cat.setTexture(this.getSelectedCosmetic().hit);
     this.cameras.main.shake(190, item.kind === 'cucumber' ? 0.016 : 0.011);
     this.tweens.killTweensOf(this.cat);
     this.tweens.add({
@@ -437,7 +584,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       onComplete: () => {
         this.cat.angle = 0;
         this.cat.x = LANES[this.currentLane];
-        this.cat.setTexture(ASSETS.catRun1);
+        this.cat.setTexture(this.getSelectedCosmetic().run1);
         if (this.phase === 'playing') {
           this.tweens.add({ targets: this.cat, y: CAT_Y - 8, duration: 180, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         }
@@ -449,12 +596,34 @@ export class KittyMilkRunScene extends Phaser.Scene {
     }
   }
 
+  private breakHeartIcon(remainingHearts: number) {
+    const heart = this.heartIcons[remainingHearts];
+    if (!heart) return;
+    heart.setTexture(ASSETS.heartBroken);
+    this.tweens.add({
+      targets: heart,
+      scale: 1.35,
+      angle: Phaser.Math.RND.pick([-18, 18]),
+      duration: 90,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        heart.setScale(1);
+        heart.setAngle(0);
+      }
+    });
+    this.emitter.explode(10, heart.x, heart.y);
+  }
+
   private collectYarn(item: RunnerSprite) {
     if (this.phase !== 'playing') return;
     const x = item.x;
     const y = item.y;
     item.destroy();
     this.yarnScore += 1;
+    this.yarnBasket += 1;
+    this.saveShopState();
     this.speed = Math.min(MAX_SPEED, this.speed + 5);
     playToneSet('yarn');
     this.emitter.explode(16, x, y);
@@ -490,7 +659,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.cameras.main.flash(250, 255, 255, 210);
 
     const bowl = this.add.image(GAME_WIDTH / 2, 332, ASSETS.milkBowl).setDepth(DEPTHS.effects);
-    this.cat.setPosition(GAME_WIDTH / 2 - 95, 388).setAngle(-4).setTexture(ASSETS.catRun1);
+    this.cat.setPosition(GAME_WIDTH / 2 - 95, 388).setAngle(-4).setTexture(this.getSelectedCosmetic().run1);
     this.milkBottle.setPosition(GAME_WIDTH / 2 + 110, 292);
     this.finishLine.setVisible(false);
 
@@ -509,7 +678,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.phase = 'lost';
     this.obstacles.clear(true, true);
     this.yarns.clear(true, true);
-    this.cat.setTexture(ASSETS.catHit).setAngle(0);
+    this.cat.setTexture(this.getSelectedCosmetic().hit).setAngle(0);
     this.showOverlay('OH NO!', `The kitty got spooked.\nYarn collected: ${this.yarnScore}\nPress Space to retry.`);
     this.overlay.setY(GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
   }
@@ -520,10 +689,12 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private updateHud() {
-    this.heartsText.setText(`Hearts: ${this.hearts}/${INITIAL_HEARTS}`);
-    this.scoreText.setText(`Yarn: ${this.yarnScore}`);
+    this.heartIcons.forEach((heart, index) => heart.setTexture(index < this.hearts ? ASSETS.heartFull : ASSETS.heartBroken));
+    this.scoreText.setText(`Run yarn: ${this.yarnScore}`);
+    this.basketText.setText(`Yarn basket: ${this.yarnBasket}`);
     const percent = Phaser.Math.Clamp(Math.round((this.distance / FINISH_DISTANCE) * 100), 0, 100);
     this.distanceText.setText(`Milk dash: ${percent}%`);
+    this.updateShopUi();
   }
 
   private floatText(text: string, x: number, y: number, color: string) {
@@ -536,6 +707,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
       ease: 'Sine.easeOut',
       onComplete: () => label.destroy()
     });
+  }
+
+  private getSelectedCosmetic() {
+    return COSMETICS.find((option) => option.id === this.selectedCosmeticId) ?? COSMETICS[0];
   }
 
   private textStyle(fontSize: number, color: string): Phaser.Types.GameObjects.Text.TextStyle {

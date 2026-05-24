@@ -2,6 +2,20 @@ export const ASSETS = {
   catRun1: 'cat-run-1',
   catRun2: 'cat-run-2',
   catHit: 'cat-hit',
+  catGrayRun1: 'cat-gray-run-1',
+  catGrayRun2: 'cat-gray-run-2',
+  catGrayHit: 'cat-gray-hit',
+  catPinkRun1: 'cat-pink-run-1',
+  catPinkRun2: 'cat-pink-run-2',
+  catPinkHit: 'cat-pink-hit',
+  catTuxRun1: 'cat-tux-run-1',
+  catTuxRun2: 'cat-tux-run-2',
+  catTuxHit: 'cat-tux-hit',
+  catRainbowRun1: 'cat-rainbow-run-1',
+  catRainbowRun2: 'cat-rainbow-run-2',
+  catRainbowHit: 'cat-rainbow-hit',
+  heartFull: 'heart-full',
+  heartBroken: 'heart-broken',
   dog: 'dog',
   cucumber: 'cucumber',
   yarnPink: 'yarn-pink',
@@ -23,6 +37,20 @@ export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.svg(ASSETS.catRun1, '/assets/cat-run-1.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.catRun2, '/assets/cat-run-2.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.catHit, '/assets/cat-hit.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catGrayRun1, '/assets/cat-gray-run-1.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catGrayRun2, '/assets/cat-gray-run-2.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catGrayHit, '/assets/cat-gray-hit.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catPinkRun1, '/assets/cat-pink-run-1.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catPinkRun2, '/assets/cat-pink-run-2.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catPinkHit, '/assets/cat-pink-hit.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catTuxRun1, '/assets/cat-tux-run-1.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catTuxRun2, '/assets/cat-tux-run-2.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catTuxHit, '/assets/cat-tux-hit.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catRainbowRun1, '/assets/cat-rainbow-run-1.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catRainbowRun2, '/assets/cat-rainbow-run-2.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.catRainbowHit, '/assets/cat-rainbow-hit.svg', { width: 96, height: 88 });
+  scene.load.svg(ASSETS.heartFull, '/assets/heart-full.svg', { width: 46, height: 42 });
+  scene.load.svg(ASSETS.heartBroken, '/assets/heart-broken.svg', { width: 46, height: 42 });
   scene.load.svg(ASSETS.dog, '/assets/dog.svg', { width: 112, height: 82 });
   scene.load.svg(ASSETS.cucumber, '/assets/cucumber.svg', { width: 110, height: 58 });
   scene.load.svg(ASSETS.foil, '/assets/foil.svg', { width: 96, height: 72 });
@@ -37,4 +65,3 @@ export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.svg(ASSETS.sparkle, '/assets/sparkle.svg', { width: 44, height: 44 });
   scene.load.svg(ASSETS.finishFlag, '/assets/finish-flag.svg', { width: 76, height: 76 });
 }
-

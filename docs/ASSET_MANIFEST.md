@@ -8,7 +8,12 @@
 
 All runtime art is generated local SVG under `public/assets/` and loaded by `src/game/assets.ts`.
 
-- `cat-run-1.svg`, `cat-run-2.svg`, `cat-hit.svg` - player states for run bobbing and hit reaction.
+- `cat-run-1.svg`, `cat-run-2.svg`, `cat-hit.svg` - starter Sunny Tabby player states.
+- `cat-gray-run-1.svg`, `cat-gray-run-2.svg`, `cat-gray-hit.svg` - Gray Moon shop cosmetic.
+- `cat-pink-run-1.svg`, `cat-pink-run-2.svg`, `cat-pink-hit.svg` - Pink Sparkle shop cosmetic.
+- `cat-tux-run-1.svg`, `cat-tux-run-2.svg`, `cat-tux-hit.svg` - Tuxedo Pop shop cosmetic.
+- `cat-rainbow-run-1.svg`, `cat-rainbow-run-2.svg`, `cat-rainbow-hit.svg` - Rainbow Scarf shop cosmetic.
+- `heart-full.svg`, `heart-broken.svg` - three-icon heart HUD and broken-heart damage state.
 - `dog.svg` - friendly dog obstacle.
 - `cucumber.svg` - silly cucumber obstacle.
 - `foil.svg` - late-run surprise obstacle.

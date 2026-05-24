@@ -17,6 +17,7 @@ Open the local Vite URL.
 - A / D: move lanes
 - Space: start or restart
 - Touch/click: tap to start/restart, swipe left/right while playing
+- Shop: click a cat card on the start screen to buy or equip
 
 ## MVP Contents
 
@@ -26,7 +27,10 @@ Open the local Vite URL.
 - Animated cat racer with lane tweening and hit reactions
 - Dog, cucumber, and late-run foil obstacles
 - Yarn collectibles with score, pop effects, and speed ramp
-- Hearts counter and milk dash progress HUD
+- Three icon hearts with animated broken-heart damage reactions
+- Yarn basket for cosmetic purchases
+- Custom Kitty Shop with five cat options
+- Milk dash progress HUD
 - Milk finish line and replayable win cutscene
 - Lose/retry state
 - Tiny Web Audio sound effects for start, yarn, bonk, and win
