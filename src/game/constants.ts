@@ -27,4 +27,4 @@ export const DEPTHS = {
 } as const;
 
 export type GamePhase = 'start' | 'playing' | 'won' | 'lost';
-export type ObstacleType = 'dog' | 'cucumber' | 'foil';
+export type ObstacleType = 'dog' | 'cucumber' | 'foil' | 'vacuum';

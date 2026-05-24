@@ -25,7 +25,9 @@ Open the local Vite URL.
 - One playable grassland race level
 - Generated local SVG art assets for the cat, dog, cucumber, yarn, milk, finish flags, sparkles, and grassland props
 - Animated cat racer with lane tweening and hit reactions
-- Dog, cucumber, and late-run foil obstacles
+- Dog and cucumber damage obstacles
+- Tinfoil scare hazard that makes the cat leap to another lane and lose progress
+- Vacuum hazard that sucks the cat in, pops it out, and leaves it with crazy hair for the rest of the run
 - Yarn collectibles with score, pop effects, and speed ramp
 - Three icon hearts with animated broken-heart damage reactions
 - Yarn basket for cosmetic purchases

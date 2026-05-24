@@ -14,9 +14,11 @@ All runtime art is generated local SVG under `public/assets/` and loaded by `src
 - `cat-tux-run-1.svg`, `cat-tux-run-2.svg`, `cat-tux-hit.svg` - Tuxedo Pop shop cosmetic.
 - `cat-rainbow-run-1.svg`, `cat-rainbow-run-2.svg`, `cat-rainbow-hit.svg` - Rainbow Scarf shop cosmetic.
 - `heart-full.svg`, `heart-broken.svg` - three-icon heart HUD and broken-heart damage state.
+- `crazy-hair.svg` - persistent post-vacuum hair overlay.
 - `dog.svg` - friendly dog obstacle.
 - `cucumber.svg` - silly cucumber obstacle.
-- `foil.svg` - late-run surprise obstacle.
+- `foil.svg` - tinfoil scare hazard.
+- `vacuum.svg` - vacuum hazard.
 - `yarn-pink.svg`, `yarn-blue.svg`, `yarn-purple.svg` - collectible yarn variants.
 - `milk-bottle.svg`, `milk-bowl.svg` - finish goal and win cutscene props.
 - `finish-flag.svg` - finish line marker.

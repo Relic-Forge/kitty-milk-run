@@ -55,6 +55,7 @@ const STORAGE_KEYS = {
 
 export class KittyMilkRunScene extends Phaser.Scene {
   private cat!: Phaser.GameObjects.Image;
+  private crazyHair!: Phaser.GameObjects.Image;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<'left' | 'right', Phaser.Input.Keyboard.Key>;
   private phase: GamePhase = 'start';
@@ -87,6 +88,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private unlockedCosmetics = new Set<string>(['tabby']);
   private shopCards: ShopCard[] = [];
   private shopPointerHandled = false;
+  private controlsLocked = false;
+  private hasCrazyHair = false;
 
   constructor() {
     super('KittyMilkRunScene');
@@ -125,6 +128,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.scrollWorld(dt);
     this.updateRunnerGroup(this.obstacles, dt, time, (item) => this.hitObstacle(item, time));
     this.updateRunnerGroup(this.yarns, dt, time, (item) => this.collectYarn(item));
+    this.updateCrazyHair();
     this.updateFinish();
     this.updateHud();
 
@@ -195,20 +199,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private createPlayer() {
     this.cat = this.add.image(LANES[this.currentLane], CAT_Y, this.getSelectedCosmetic().run1).setDepth(DEPTHS.player).setScale(0.95);
-    this.tweens.add({
-      targets: this.cat,
-      y: CAT_Y - 8,
-      duration: 180,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
+    this.crazyHair = this.add.image(this.cat.x, this.cat.y - 37, ASSETS.crazyHair).setDepth(DEPTHS.player + 1).setScale(0.9).setVisible(false);
+    this.startCatBob();
 
     this.time.addEvent({
       delay: 160,
       loop: true,
       callback: () => {
-        if (this.phase === 'playing') {
+        if (this.phase === 'playing' && !this.controlsLocked) {
           const cosmetic = this.getSelectedCosmetic();
           this.cat.setTexture(this.cat.texture.key === cosmetic.run1 ? cosmetic.run2 : cosmetic.run1);
         }
@@ -407,6 +405,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.nextBlockedLane = undefined;
     this.invulnerableUntil = 0;
     this.laneSwipeStart = undefined;
+    this.controlsLocked = false;
+    this.hasCrazyHair = false;
   }
 
   private loadShopState() {
@@ -445,6 +445,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private startGame() {
     this.phase = 'playing';
     this.cat.setTexture(this.getSelectedCosmetic().run1);
+    this.hasCrazyHair = false;
+    this.crazyHair.setVisible(false);
     playToneSet('start');
     this.tweens.add({
       targets: this.overlay,
@@ -468,26 +470,40 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private spawnObstacle() {
     const lane = this.pickSafeLane(this.obstacles, this.yarns, -70, true);
     if (lane === undefined) return;
-    const kind: ObstacleType = this.distance > 1850 && Math.random() < 0.15 ? 'foil' : Phaser.Math.RND.pick(['dog', 'cucumber']);
-    const texture = kind === 'dog' ? ASSETS.dog : kind === 'cucumber' ? ASSETS.cucumber : ASSETS.foil;
+    const kind = this.pickObstacleType();
+    const texture = this.getObstacleTexture(kind);
     const obstacle = this.add.image(LANES[lane], -70, texture) as RunnerSprite;
     obstacle.laneIndex = lane;
     obstacle.kind = kind;
     obstacle.setDepth(DEPTHS.obstacles);
-    obstacle.setScale(kind === 'dog' ? 0.88 : 0.92);
-    obstacle.setData('hitRadiusX', kind === 'dog' ? 55 : 48);
-    obstacle.setData('hitRadiusY', kind === 'dog' ? 45 : 38);
+    obstacle.setScale(kind === 'dog' ? 0.88 : kind === 'vacuum' ? 0.78 : 0.92);
+    obstacle.setData('hitRadiusX', kind === 'dog' ? 55 : kind === 'vacuum' ? 62 : 48);
+    obstacle.setData('hitRadiusY', kind === 'dog' ? 45 : kind === 'vacuum' ? 48 : 38);
     this.obstacles.add(obstacle);
     this.nextBlockedLane = lane;
 
     this.tweens.add({
       targets: obstacle,
-      angle: kind === 'cucumber' ? 6 : 3,
-      duration: kind === 'cucumber' ? 150 : 220,
+      angle: kind === 'cucumber' || kind === 'foil' ? 6 : 3,
+      duration: kind === 'cucumber' || kind === 'foil' ? 150 : 220,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
+  }
+
+  private pickObstacleType(): ObstacleType {
+    const roll = Math.random();
+    if (this.distance > 2800 && roll < 0.16) return 'vacuum';
+    if (this.distance > 1500 && roll < 0.34) return 'foil';
+    return Phaser.Math.RND.pick(['dog', 'cucumber']);
+  }
+
+  private getObstacleTexture(kind: ObstacleType) {
+    if (kind === 'dog') return ASSETS.dog;
+    if (kind === 'cucumber') return ASSETS.cucumber;
+    if (kind === 'vacuum') return ASSETS.vacuum;
+    return ASSETS.foil;
   }
 
   private spawnYarn() {
@@ -563,6 +579,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private hitObstacle(item: RunnerSprite, time: number) {
     if (time < this.invulnerableUntil || this.phase !== 'playing') return;
+    if (item.kind === 'foil') {
+      this.scareJumpFromFoil(item, time);
+      return;
+    }
+    if (item.kind === 'vacuum') {
+      this.vacuumCat(item, time);
+      return;
+    }
     this.invulnerableUntil = time + 700;
     item.destroy();
     this.hearts -= 1;
@@ -586,7 +610,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
         this.cat.x = LANES[this.currentLane];
         this.cat.setTexture(this.getSelectedCosmetic().run1);
         if (this.phase === 'playing') {
-          this.tweens.add({ targets: this.cat, y: CAT_Y - 8, duration: 180, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          this.startCatBob();
         }
       }
     });
@@ -594,6 +618,92 @@ export class KittyMilkRunScene extends Phaser.Scene {
     if (this.hearts <= 0) {
       this.loseGame();
     }
+  }
+
+  private scareJumpFromFoil(item: RunnerSprite, time: number) {
+    this.invulnerableUntil = time + 900;
+    this.controlsLocked = true;
+    const startX = this.cat.x;
+    item.destroy();
+    playToneSet('bonk');
+    this.cameras.main.shake(180, 0.014);
+    this.emitter.explode(16, this.cat.x, this.cat.y - 18);
+    this.floatText('Tinfoil!', this.cat.x, this.cat.y - 54, '#fff2a1');
+    this.distance = Math.max(0, this.distance - 260);
+    const possibleLanes = [0, 1, 2].filter((lane) => lane !== this.currentLane);
+    this.currentLane = Phaser.Math.RND.pick(possibleLanes);
+    const targetX = LANES[this.currentLane];
+    this.tweens.killTweensOf(this.cat);
+    this.cat.setTexture(this.getSelectedCosmetic().hit);
+    this.tweens.add({
+      targets: this.cat,
+      x: targetX,
+      y: CAT_Y + 74,
+      angle: targetX > startX ? 22 : -22,
+      duration: 180,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: this.cat,
+          y: CAT_Y,
+          angle: 0,
+          duration: 190,
+          ease: 'Bounce.easeOut',
+          onComplete: () => {
+            this.cat.setTexture(this.getSelectedCosmetic().run1);
+            this.controlsLocked = false;
+            this.startCatBob();
+          }
+        });
+      }
+    });
+  }
+
+  private vacuumCat(item: RunnerSprite, time: number) {
+    this.invulnerableUntil = time + 1300;
+    this.controlsLocked = true;
+    const vacuumX = item.x;
+    const vacuumY = item.y;
+    item.destroy();
+    playToneSet('bonk');
+    this.cameras.main.shake(260, 0.018);
+    this.emitter.explode(18, vacuumX, vacuumY);
+    this.floatText('WHOOOOSH!', vacuumX, vacuumY - 50, '#dff7ff');
+    this.tweens.killTweensOf(this.cat);
+    this.crazyHair.setVisible(false);
+    this.tweens.add({
+      targets: this.cat,
+      x: vacuumX,
+      y: vacuumY,
+      scale: 0.2,
+      alpha: 0.35,
+      angle: 720,
+      duration: 330,
+      ease: 'Sine.easeIn',
+      onComplete: () => {
+        const possibleLanes = [0, 1, 2].filter((lane) => lane !== this.currentLane);
+        this.currentLane = Phaser.Math.RND.pick(possibleLanes);
+        this.cat.setPosition(LANES[this.currentLane], CAT_Y - 70).setScale(1.25).setAlpha(1).setAngle(-18);
+        this.cat.setTexture(this.getSelectedCosmetic().hit);
+        this.hasCrazyHair = true;
+        this.crazyHair.setVisible(true);
+        this.updateCrazyHair();
+        this.tweens.add({
+          targets: this.cat,
+          y: CAT_Y,
+          scale: 1,
+          angle: 0,
+          duration: 280,
+          ease: 'Bounce.easeOut',
+          onComplete: () => {
+            this.cat.setTexture(this.getSelectedCosmetic().run1);
+            this.controlsLocked = false;
+            this.startCatBob();
+            this.updateCrazyHair();
+          }
+        });
+      }
+    });
   }
 
   private breakHeartIcon(remainingHearts: number) {
@@ -632,7 +742,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private moveLane(direction: number) {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing' || this.controlsLocked) return;
     const nextLane = Phaser.Math.Clamp(this.currentLane + direction, 0, LANES.length - 1);
     if (nextLane === this.currentLane) return;
     this.currentLane = nextLane;
@@ -660,6 +770,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
     const bowl = this.add.image(GAME_WIDTH / 2, 332, ASSETS.milkBowl).setDepth(DEPTHS.effects);
     this.cat.setPosition(GAME_WIDTH / 2 - 95, 388).setAngle(-4).setTexture(this.getSelectedCosmetic().run1);
+    this.crazyHair.setVisible(false);
     this.milkBottle.setPosition(GAME_WIDTH / 2 + 110, 292);
     this.finishLine.setVisible(false);
 
@@ -679,6 +790,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.obstacles.clear(true, true);
     this.yarns.clear(true, true);
     this.cat.setTexture(this.getSelectedCosmetic().hit).setAngle(0);
+    this.crazyHair.setVisible(false);
     this.showOverlay('OH NO!', `The kitty got spooked.\nYarn collected: ${this.yarnScore}\nPress Space to retry.`);
     this.overlay.setY(GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
   }
@@ -707,6 +819,28 @@ export class KittyMilkRunScene extends Phaser.Scene {
       ease: 'Sine.easeOut',
       onComplete: () => label.destroy()
     });
+  }
+
+  private startCatBob() {
+    this.tweens.killTweensOf(this.cat);
+    this.cat.setY(CAT_Y);
+    this.tweens.add({
+      targets: this.cat,
+      y: CAT_Y - 8,
+      duration: 180,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  private updateCrazyHair() {
+    if (!this.crazyHair) return;
+    this.crazyHair.setVisible(this.hasCrazyHair && this.phase === 'playing');
+    if (!this.crazyHair.visible) return;
+    this.crazyHair.setPosition(this.cat.x, this.cat.y - 38);
+    this.crazyHair.setAngle(this.cat.angle);
+    this.crazyHair.setScale(0.9 * this.cat.scaleX);
   }
 
   private getSelectedCosmetic() {

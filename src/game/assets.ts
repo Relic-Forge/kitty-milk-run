@@ -16,8 +16,10 @@ export const ASSETS = {
   catRainbowHit: 'cat-rainbow-hit',
   heartFull: 'heart-full',
   heartBroken: 'heart-broken',
+  crazyHair: 'crazy-hair',
   dog: 'dog',
   cucumber: 'cucumber',
+  vacuum: 'vacuum',
   yarnPink: 'yarn-pink',
   yarnBlue: 'yarn-blue',
   yarnPurple: 'yarn-purple',
@@ -51,9 +53,11 @@ export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.svg(ASSETS.catRainbowHit, '/assets/cat-rainbow-hit.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.heartFull, '/assets/heart-full.svg', { width: 46, height: 42 });
   scene.load.svg(ASSETS.heartBroken, '/assets/heart-broken.svg', { width: 46, height: 42 });
+  scene.load.svg(ASSETS.crazyHair, '/assets/crazy-hair.svg', { width: 76, height: 54 });
   scene.load.svg(ASSETS.dog, '/assets/dog.svg', { width: 112, height: 82 });
   scene.load.svg(ASSETS.cucumber, '/assets/cucumber.svg', { width: 110, height: 58 });
   scene.load.svg(ASSETS.foil, '/assets/foil.svg', { width: 96, height: 72 });
+  scene.load.svg(ASSETS.vacuum, '/assets/vacuum.svg', { width: 130, height: 88 });
   scene.load.svg(ASSETS.yarnPink, '/assets/yarn-pink.svg', { width: 56, height: 56 });
   scene.load.svg(ASSETS.yarnBlue, '/assets/yarn-blue.svg', { width: 56, height: 56 });
   scene.load.svg(ASSETS.yarnPurple, '/assets/yarn-purple.svg', { width: 56, height: 56 });
