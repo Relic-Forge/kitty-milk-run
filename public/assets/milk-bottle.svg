@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 116 150">
+  <rect width="116" height="150" fill="none"/>
+  <path d="M44 12 H72 V34 L88 52 V130 C88 139 81 144 72 144 H44 C35 144 28 139 28 130 V52 L44 34 Z" fill="#ffffff" stroke="#2f5e9f" stroke-width="6" stroke-linejoin="round"/>
+  <rect x="39" y="8" width="38" height="17" rx="5" fill="#dbeafe" stroke="#2f5e9f" stroke-width="5"/>
+  <path d="M31 68 H85 V110 H31 Z" fill="#dbeafe" stroke="#2f5e9f" stroke-width="4"/>
+  <text x="58" y="96" text-anchor="middle" font-family="Arial Black, Arial" font-size="24" fill="#2f5e9f">MILK</text>
+  <path d="M42 57 C52 65 65 65 75 57" fill="none" stroke="#bee3ff" stroke-width="6" stroke-linecap="round"/>
+</svg>
