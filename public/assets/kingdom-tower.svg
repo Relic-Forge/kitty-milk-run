@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 116" role="img" aria-label="pastel kingdom tower">
+  <path d="M13 112V45h46v67H13Z" fill="#f8e7ff"/>
+  <path d="M9 47h54L36 7 9 47Z" fill="#b989ff"/>
+  <path d="M19 47h34v65H19V47Z" fill="#ffe8f8"/>
+  <path d="M30 112V88c0-7 12-7 12 0v24H30Z" fill="#8e68d9"/>
+  <path d="M26 63h8M38 63h8M26 76h8M38 76h8" stroke="#8ccfff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M36 7v-5M36 2h13" stroke="#ffd166" stroke-width="4" stroke-linecap="round"/>
+  <path d="M9 47h54M13 112h46" stroke="#8c64cf" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+</svg>

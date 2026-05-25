@@ -94,7 +94,7 @@ V1 behavior:
 Future behavior:
 
 - Fills boost meter
-- Unlocks cat skins
+- Unlocks cats
 - Purchases milk bowls, collars, hats, or track decorations
 
 ## Visual Direction

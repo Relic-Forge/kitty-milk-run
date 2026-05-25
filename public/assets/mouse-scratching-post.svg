@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 42" role="img" aria-label="sideways scratching post">
+  <rect x="9" y="13" width="38" height="15" rx="7.5" fill="#c99154" stroke="#6c3f22" stroke-width="3"/>
+  <path d="M15 14v13M21 14v13M27 14v13M33 14v13M39 15v11" stroke="#f0c483" stroke-width="2" stroke-linecap="round"/>
+  <rect x="5" y="28" width="46" height="7" rx="3.5" fill="#8a5a34"/>
+</svg>

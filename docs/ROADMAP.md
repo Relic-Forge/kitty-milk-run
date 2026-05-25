@@ -34,7 +34,7 @@ Includes:
 
 - Multiple tracks
 - Yarn total across runs
-- Unlock cat skins
+- Unlock cats
 - Unlock hats/collars
 - Milk café home screen
 

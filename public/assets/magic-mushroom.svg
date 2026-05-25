@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 46" role="img" aria-label="cute spotted mushroom">
+  <path d="M19 22h10l4 21H15l4-21Z" fill="#fff4d6"/>
+  <path d="M6 24C7 11 15 4 25 4c11 0 18 7 18 20H6Z" fill="#ff86c6"/>
+  <path d="M8 25c4 6 26 6 34 0" fill="none" stroke="#a954b7" stroke-width="4" stroke-linecap="round" opacity=".35"/>
+  <circle cx="18" cy="13" r="4" fill="#fff7fb"/>
+  <circle cx="31" cy="16" r="3.5" fill="#fff7fb"/>
+  <circle cx="25" cy="9" r="2.5" fill="#fff7fb"/>
+</svg>

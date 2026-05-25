@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 42" role="img" aria-label="cat food">
+  <ellipse cx="28" cy="31" rx="19" ry="6" fill="#7a4a28" opacity=".28"/>
+  <path d="M12 15h32l-4 21H16z" fill="#f7d46a" stroke="#713c1b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M13 15c2-7 8-11 15-11s13 4 15 11z" fill="#ff8a7a" stroke="#713c1b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M20 15c1-3 4-5 8-5s7 2 8 5" fill="none" stroke="#fff7bf" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="23" cy="25" r="2.8" fill="#713c1b"/>
+  <circle cx="33" cy="25" r="2.8" fill="#713c1b"/>
+  <path d="M25 31h6" stroke="#713c1b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M8 11h7M5 18h7M44 10h7M46 18h6" stroke="#fff7bf" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

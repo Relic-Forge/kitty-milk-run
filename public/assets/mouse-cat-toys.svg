@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 42" role="img" aria-label="cat toys">
+  <circle cx="21" cy="21" r="11" fill="#ff7aa8" stroke="#7e2d62" stroke-width="3"/>
+  <path d="M12 18c6 4 13 4 19 0M12 24c6-4 13-4 19 0" fill="none" stroke="#fff1f7" stroke-width="2" stroke-linecap="round"/>
+  <path d="M31 25c7-3 13 0 15 8" fill="none" stroke="#36aeea" stroke-width="3" stroke-linecap="round"/>
+  <path d="m43 33 6 2-4 5" fill="none" stroke="#36aeea" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="41" cy="11" r="5" fill="#ffd166" stroke="#915f18" stroke-width="2"/>
+</svg>

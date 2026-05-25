@@ -13,6 +13,9 @@ All runtime art is generated local SVG under `public/assets/` and loaded by `src
 - `cat-pink-run-1.svg`, `cat-pink-run-2.svg`, `cat-pink-hit.svg` - Pink Sparkle shop cosmetic.
 - `cat-tux-run-1.svg`, `cat-tux-run-2.svg`, `cat-tux-hit.svg` - Tuxedo Pop shop cosmetic.
 - `cat-rainbow-run-1.svg`, `cat-rainbow-run-2.svg`, `cat-rainbow-hit.svg` - Rainbow Scarf shop cosmetic.
+- `cat-nyan-*.svg` - Pop-Tart Nyan Cat player cat family, including Classic Cherry plus directly purchasable flavor variants.
+- `mouse-cursor.svg`, `mouse-rodent.svg`, `mouse-cat-toys.svg`, `mouse-cat-nip.svg`, `mouse-scratching-post.svg`, `mouse-laser-dot.svg` - mouse cursor cosmetics in the shop.
+- `nyan-cat.svg` - expensive rainbow trail preview with a vertical rainbow trail orientation.
 - `heart-full.svg`, `heart-broken.svg` - three-icon heart HUD and broken-heart damage state.
 - `crazy-hair.svg` - persistent post-vacuum hair overlay.
 - `dog.svg` - friendly dog obstacle.
@@ -27,7 +30,7 @@ All runtime art is generated local SVG under `public/assets/` and loaded by `src
 
 ## Runtime Audio Assets
 
-All runtime audio is vendored under `public/assets/audio/`, loaded by `src/game/assets.ts`, and selected by `src/game/sound.ts` with small randomized pitch changes.
+All runtime audio is vendored under `public/assets/audio/`, loaded by `src/game/assets.ts`, and selected by `src/game/sound.ts` with small randomized pitch changes. Sound FX, Music, and volume settings are persisted for current effects and future background music.
 
 - `cat-mew-food.wav`, `cat-mew-purr.wav`, `cat-mew-purr-2.wav`, `cat-soft-mew.wav`, `cat-purr-active.wav` - cat mews and purr from OpenGameArt `Cat Purr & Meow` by Kerzoven, licensed CC0. Source: https://opengameart.org/content/cat-purr-meow
 - `cat-pop-meow.ogg` - `Meow` from OpenGameArt / Liberated Pixel Cup by IgnasD, licensed CC0. Source: https://lpc.opengameart.org/content/meow

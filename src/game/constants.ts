@@ -10,7 +10,6 @@ export const MAX_SPEED = 344;
 export const FINISH_DISTANCE = 8400;
 
 export const OBSTACLE_SPAWN_MS = 880;
-export const YARN_SPAWN_MS = 620;
 export const SPAWN_CLEARANCE_Y = 185;
 
 export const DEPTHS = {
@@ -26,5 +25,5 @@ export const DEPTHS = {
   overlay: 80
 } as const;
 
-export type GamePhase = 'start' | 'playing' | 'won' | 'lost';
+export type GamePhase = 'start' | 'countdown' | 'playing' | 'paused' | 'won' | 'lost';
 export type ObstacleType = 'dog' | 'cucumber' | 'foil' | 'vacuum';

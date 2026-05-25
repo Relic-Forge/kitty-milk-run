@@ -18,7 +18,7 @@ body {
 }
 
 canvas {
-  image-rendering: pixelated;
+  image-rendering: auto;
   border: 6px solid #ffffff;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }

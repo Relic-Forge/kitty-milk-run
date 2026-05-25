@@ -5,6 +5,12 @@ type ToneName = 'yarn' | 'bonk' | 'win' | 'start';
 type GameSoundName = 'start' | 'catHit' | 'foilScare' | 'vacuum' | 'win';
 type BasketSoundName = 'collect' | 'buy' | 'equip' | 'deny';
 
+export type AudioSettings = {
+  soundFxEnabled: boolean;
+  musicEnabled: boolean;
+  volume: number;
+};
+
 type GameSoundConfig = {
   keys: SoundKey[];
   volume: number;
@@ -68,6 +74,27 @@ const gameSounds: Record<GameSoundName, GameSoundConfig> = {
 };
 
 let audioContext: AudioContext | undefined;
+let audioSettings: AudioSettings = {
+  soundFxEnabled: true,
+  musicEnabled: true,
+  volume: 0.8
+};
+
+export function setAudioSettings(settings: AudioSettings) {
+  audioSettings = {
+    soundFxEnabled: settings.soundFxEnabled,
+    musicEnabled: settings.musicEnabled,
+    volume: Math.max(0, Math.min(1, settings.volume))
+  };
+}
+
+export function getAudioSettings() {
+  return { ...audioSettings };
+}
+
+export function getMusicVolume() {
+  return audioSettings.musicEnabled ? audioSettings.volume : 0;
+}
 
 function getAudioContext() {
   audioContext ??= new AudioContext();
@@ -76,6 +103,7 @@ function getAudioContext() {
 }
 
 export function playToneSet(name: ToneName) {
+  if (!audioSettings.soundFxEnabled || audioSettings.volume <= 0) return;
   try {
     const ctx = getAudioContext();
     let offset = 0;
@@ -90,7 +118,7 @@ export function playToneSet(name: ToneName) {
 
       const start = ctx.currentTime + offset;
       gain.gain.setValueAtTime(0.001, start);
-      gain.gain.exponentialRampToValueAtTime(0.09, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.09 * audioSettings.volume, start + 0.015);
       gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
       oscillator.start(start);
       oscillator.stop(start + duration + 0.02);
@@ -102,13 +130,14 @@ export function playToneSet(name: ToneName) {
 }
 
 export function playGameSound(scene: Phaser.Scene, name: GameSoundName) {
+  if (!audioSettings.soundFxEnabled || audioSettings.volume <= 0) return;
   const config = gameSounds[name];
 
   try {
     const key = config.keys[Math.floor(Math.random() * config.keys.length)];
     const rate = config.rate[0] + Math.random() * (config.rate[1] - config.rate[0]);
     scene.sound.play(key, {
-      volume: config.volume,
+      volume: config.volume * audioSettings.volume,
       rate
     });
   } catch {
@@ -117,6 +146,7 @@ export function playGameSound(scene: Phaser.Scene, name: GameSoundName) {
 }
 
 export function playBasketSound(name: BasketSoundName = 'collect') {
+  if (!audioSettings.soundFxEnabled || audioSettings.volume <= 0) return;
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
@@ -138,15 +168,15 @@ export function playBasketSound(name: BasketSoundName = 'collect') {
     filter.connect(noiseGain);
     noiseGain.connect(ctx.destination);
     noiseGain.gain.setValueAtTime(0.001, now);
-    noiseGain.gain.exponentialRampToValueAtTime(name === 'deny' ? 0.045 : 0.07, now + 0.012);
+    noiseGain.gain.exponentialRampToValueAtTime((name === 'deny' ? 0.045 : 0.07) * audioSettings.volume, now + 0.012);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
     noise.start(now);
     noise.stop(now + 0.13);
 
-    playEnvelopeTone(ctx, name === 'deny' ? 140 : 196, 0.09, 'triangle', name === 'deny' ? 0.06 : 0.085, now + 0.018);
+    playEnvelopeTone(ctx, name === 'deny' ? 140 : 196, 0.09, 'triangle', (name === 'deny' ? 0.06 : 0.085) * audioSettings.volume, now + 0.018);
     if (name !== 'deny') {
-      playEnvelopeTone(ctx, name === 'collect' ? 740 : 660, 0.08, 'sine', 0.055, now + 0.07);
-      playEnvelopeTone(ctx, name === 'collect' ? 988 : 880, 0.07, 'sine', 0.042, now + 0.125);
+      playEnvelopeTone(ctx, name === 'collect' ? 740 : 660, 0.08, 'sine', 0.055 * audioSettings.volume, now + 0.07);
+      playEnvelopeTone(ctx, name === 'collect' ? 988 : 880, 0.07, 'sine', 0.042 * audioSettings.volume, now + 0.125);
     }
   } catch {
     playToneSet(name === 'deny' ? 'bonk' : 'yarn');

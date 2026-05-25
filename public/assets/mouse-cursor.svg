@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 42" role="img" aria-label="cute computer mouse cursor">
+  <path d="M28 4c10 0 18 8 18 18v3c0 8-8 13-18 13S10 33 10 25v-3C10 12 18 4 28 4Z" fill="#e9f2ff"/>
+  <path d="M28 4v15" fill="none" stroke="#6b80a2" stroke-width="3" stroke-linecap="round"/>
+  <path d="M28 4c10 0 18 8 18 18v3c0 8-8 13-18 13S10 33 10 25v-3C10 12 18 4 28 4Z" fill="none" stroke="#39506f" stroke-width="3.5" stroke-linejoin="round"/>
+  <rect x="25" y="9" width="6" height="10" rx="3" fill="#ff7aa8" stroke="#39506f" stroke-width="2.3"/>
+  <path d="M15 25c5 4 21 4 26 0" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+  <circle cx="21" cy="28" r="2" fill="#39506f"/>
+  <circle cx="35" cy="28" r="2" fill="#39506f"/>
+</svg>

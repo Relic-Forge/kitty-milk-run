@@ -19,6 +19,7 @@ Open the local Vite URL.
 - Touch/click: tap to start/restart, swipe left/right while playing
 - Shop: click a cat card on the start screen to buy or equip
 - Milk speed: choose 0.5x, 1x, 1.5x, or 2x on the start screen
+- Audio: toggle Sound FX and Music, then adjust volume on the start screen
 
 ## MVP Contents
 
@@ -32,11 +33,11 @@ Open the local Vite URL.
 - Yarn collectibles with score, basket-pack sound, pop effects, and speed ramp
 - Three icon hearts with animated broken-heart damage reactions
 - Yarn basket for cosmetic purchases
-- Custom Kitty Shop with five cat options
+- Custom Kitty Shop with scrollable cats, directly purchasable Nyan Cat versions, mouse cosmetics, trail cosmetics, accessories, and Cat God toggle testing
 - Milk dash progress HUD
 - Milk finish line and replayable win cutscene
 - Lose/retry state
-- CC0 cat sound effects for start, obstacle scares, vacuum suction, and milk purr win, with synthesized basket sounds for yarn/shop actions
+- CC0 cat sound effects for start, obstacle scares, vacuum suction, and milk purr win, with persistent Sound FX, Music, and volume settings prepared for future background music
 - Animated start-screen speed selector with 0.5x, 1x, 1.5x, and 2x level speed
 - Product docs for Codex handoff
 
