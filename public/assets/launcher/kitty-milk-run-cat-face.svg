@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Kitty Milk Run cat face logo</title>
+  <desc id="desc">A smiling orange cat face with milk whiskers for the Kitty Milk Run desktop launcher.</desc>
+  <defs>
+    <linearGradient id="fur" x1="196" y1="164" x2="828" y2="884" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffcf63"/>
+      <stop offset="0.48" stop-color="#ff9f43"/>
+      <stop offset="1" stop-color="#f06b3e"/>
+    </linearGradient>
+    <linearGradient id="milk" x1="335" y1="592" x2="692" y2="735" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7f4ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-12%" y="-10%" width="124%" height="128%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="32" flood-color="#7a351f" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="#7edfe7"/>
+  <circle cx="196" cy="176" r="82" fill="#fff6b0" opacity="0.75"/>
+  <circle cx="858" cy="784" r="118" fill="#b6f3c8" opacity="0.72"/>
+  <g filter="url(#shadow)">
+    <path d="M254 425 218 168c-5-38 38-64 70-43l196 127c19-3 39-4 60-4 20 0 40 1 59 4l196-127c32-21 75 5 70 43l-36 257c38 54 60 119 60 189 0 191-166 346-371 346S151 805 151 614c0-70 23-135 61-189z" fill="url(#fur)"/>
+    <path d="M294 219 438 318c-58 22-105 61-136 110z" fill="#8a4c39" opacity="0.22"/>
+    <path d="M730 219 586 318c58 22 105 61 136 110z" fill="#8a4c39" opacity="0.22"/>
+    <path d="M339 575c0 43-31 78-69 78s-69-35-69-78 31-78 69-78 69 35 69 78z" fill="#2d2132"/>
+    <path d="M823 575c0 43-31 78-69 78s-69-35-69-78 31-78 69-78 69 35 69 78z" fill="#2d2132"/>
+    <circle cx="296" cy="543" r="18" fill="#fff7d9"/>
+    <circle cx="780" cy="543" r="18" fill="#fff7d9"/>
+    <path d="M486 597c14-18 38-18 52 0 10 13 4 34-17 45-21-11-45-32-35-45z" fill="#6f3146"/>
+    <path d="M441 679c26 34 116 35 143 0" fill="none" stroke="#6f3146" stroke-width="22" stroke-linecap="round"/>
+    <path d="M337 684c81 32 276 32 357 0-14 72-87 131-178 131s-166-59-179-131z" fill="url(#milk)"/>
+    <path d="M167 653c92-10 172-3 244 23M166 728c89-29 171-40 246-32M857 653c-92-10-172-3-244 23M858 728c-89-29-171-40-246-32" fill="none" stroke="#5f352e" stroke-width="20" stroke-linecap="round"/>
+    <path d="M398 390c46-25 86-32 120-21M626 390c-46-25-86-32-120-21" fill="none" stroke="#c35d34" stroke-width="25" stroke-linecap="round"/>
+    <path d="M510 167c-22 28-31 56-27 84M590 177c-29 24-43 52-42 86" fill="none" stroke="#ffef9e" stroke-width="25" stroke-linecap="round"/>
+  </g>
+</svg>
