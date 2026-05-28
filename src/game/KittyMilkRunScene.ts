@@ -16,6 +16,7 @@ import {
   type ObstacleType
 } from './constants';
 import { playBasketSound, playGameSound, playToneSet, setAudioSettings } from './sound';
+import { MAP_CONNECTIONS, MAP_NODES, WORLDS, getWorldForNode, type MapNode, type ThemeKey } from './worldMap';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
@@ -121,7 +122,7 @@ type AudioVolumeSlider = {
   labelText: Phaser.GameObjects.Text;
 };
 
-type LevelId = 'meadow' | 'magical-kingdom';
+type LevelId = ThemeKey;
 
 type LevelOption = {
   id: LevelId;
@@ -148,6 +149,14 @@ type LevelButton = {
   titleText: Phaser.GameObjects.Text;
 };
 
+type MapNodeButton = {
+  node: MapNode;
+  container: Phaser.GameObjects.Container;
+  background: Phaser.GameObjects.Graphics;
+  rating: Phaser.GameObjects.Graphics;
+  labelText: Phaser.GameObjects.Text;
+};
+
 type EyeTrackedCat = {
   container: Phaser.GameObjects.Container;
   base: Phaser.GameObjects.Image;
@@ -160,7 +169,7 @@ type EyeTrackedCat = {
   lookRange: Phaser.Math.Vector2;
 };
 
-type OverlayMode = 'run' | 'shop';
+type OverlayMode = 'launch' | 'map' | 'shop';
 
 type VisibleGameObject = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible;
 
@@ -267,7 +276,9 @@ const STORAGE_KEYS = {
   mode: 'kitty-milk-run:selected-mode',
   soundFx: 'kitty-milk-run:sound-fx-enabled',
   music: 'kitty-milk-run:music-enabled',
-  audioVolume: 'kitty-milk-run:audio-volume'
+  audioVolume: 'kitty-milk-run:audio-volume',
+  mapProgress: 'kitty-milk-run:milk-map-progress',
+  selectedMapNode: 'kitty-milk-run:selected-map-node'
 } as const;
 
 const SPEED_OPTIONS: SpeedOption[] = [
@@ -279,34 +290,49 @@ const SPEED_OPTIONS: SpeedOption[] = [
 
 const LEVELS: LevelOption[] = [
   {
-    id: 'meadow',
-    name: 'Sunny Meadow',
+    id: 'kitchen',
+    name: 'Cozy Kitchen',
     order: 1,
-    tagline: 'Easy first run',
-    backgroundColor: '#6fd660',
-    backgroundBand: 0x92ee7d,
-    roadOuter: 0xb9854e,
-    roadInner: 0xd1a06a,
-    roadEdge: 0xfef2bd,
-    laneMark: 0xfff7d8,
-    hudTint: 0x2d5fbd,
+    tagline: 'Flour pawprints and spoon chaos',
+    backgroundColor: '#f1c975',
+    backgroundBand: 0xffefba,
+    roadOuter: 0xc98248,
+    roadInner: 0xfff7dc,
+    roadEdge: 0xffffff,
+    laneMark: 0xd39154,
+    hudTint: 0x9b5734,
     maxYarn: 36,
-    decorKeys: [ASSETS.flower, ASSETS.grassTuft, ASSETS.paw]
+    decorKeys: [ASSETS.paw, ASSETS.milkBowl, ASSETS.milkBottle, ASSETS.sparkle]
   },
   {
-    id: 'magical-kingdom',
-    name: 'Magical Kingdom',
+    id: 'living_room',
+    name: 'Living Room',
     order: 2,
-    tagline: 'Light airy fantasy',
-    backgroundColor: '#bfefff',
-    backgroundBand: 0xf8dcff,
-    roadOuter: 0xd8c0ff,
-    roadInner: 0xf7e6ff,
+    tagline: 'Yarn trails and couch-gap zoomies',
+    backgroundColor: '#6fb68a',
+    backgroundBand: 0xf06d5f,
+    roadOuter: 0x5d3b8c,
+    roadInner: 0xff8ec7,
     roadEdge: 0xffffff,
-    laneMark: 0xffdf7e,
-    hudTint: 0x8c64cf,
+    laneMark: 0xfff2bd,
+    hudTint: 0x306955,
     maxYarn: 36,
-    decorKeys: [ASSETS.magicCloud, ASSETS.magicCrystal, ASSETS.magicMushroom, ASSETS.kingdomTower, ASSETS.starLantern]
+    decorKeys: [ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple, ASSETS.vacuum, ASSETS.mouseCatToys]
+  },
+  {
+    id: 'backyard',
+    name: 'Backyard',
+    order: 3,
+    tagline: 'Fence club adventure pace',
+    backgroundColor: '#77c765',
+    backgroundBand: 0xa7e870,
+    roadOuter: 0x6e9b49,
+    roadInner: 0xd8b176,
+    roadEdge: 0xf6ffe7,
+    laneMark: 0x7ed7ff,
+    hudTint: 0x3f7b45,
+    maxYarn: 38,
+    decorKeys: [ASSETS.flower, ASSETS.grassTuft, ASSETS.paw, ASSETS.cucumber]
   }
 ];
 
@@ -402,6 +428,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private catGodButton!: CatGodButton;
   private catGodMode = false;
   private runUiElements: VisibleGameObject[] = [];
+  private launchUiElements: VisibleGameObject[] = [];
   private endUiElements: VisibleGameObject[] = [];
   private pauseUiElements: VisibleGameObject[] = [];
   private speedButtons: SpeedButton[] = [];
@@ -410,13 +437,18 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private audioToggleButtons: AudioToggleButton[] = [];
   private audioVolumeSlider!: AudioVolumeSlider;
   private eyeTrackedCats: EyeTrackedCat[] = [];
+  private mapNodeButtons: MapNodeButton[] = [];
+  private mapCardElements: VisibleGameObject[] = [];
+  private mapCatAvatar!: Phaser.GameObjects.Image;
+  private mapProgress: Record<string, number> = {};
+  private selectedMapNodeId = MAP_NODES[0].id;
   private speedMultiplier = 1;
-  private selectedLevelId: LevelId = 'meadow';
+  private selectedLevelId: LevelId = 'kitchen';
   private runMode: RunMode = 'milk-run';
   private soundFxEnabled = true;
   private musicEnabled = true;
   private audioVolume = 0.8;
-  private overlayMode: OverlayMode = 'run';
+  private overlayMode: OverlayMode = 'launch';
   private shopPointerHandled = false;
   private controlsLocked = false;
   private hasCrazyHair = false;
@@ -681,25 +713,6 @@ export class KittyMilkRunScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
-    const selectedCosmetic = this.getSelectedCosmetic();
-    const selectedCat = this.createEyeTrackedCat(-302, -78, selectedCosmetic.run1, selectedCosmetic.style === 'nyan' ? 0.82 : 0.7, selectedCosmetic.style === 'nyan');
-    const selectedRoomba = this.add.image(-302, -46, ASSETS.roomba).setScale(0.4);
-    const readyText = this.add
-      .text(0, -124, 'Ready for a milk run?', this.textStyle(27, '#fffad0'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 5);
-    const loadoutText = this.add
-      .text(-302, -28, '', { ...this.textStyle(16, '#dff7ff'), align: 'center', wordWrap: { width: 176 } })
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    const startButton = this.createOverlayButton(0, 166, 240, 48, 'Start Run', 0x53d36d, () => this.startGame());
-    const shopButton = this.createOverlayButton(0, 220, 150, 32, 'Shop', 0xffd166, () => this.showOverlayMode('shop'));
-    this.runUiElements = [selectedCat.container, selectedRoomba, readyText, loadoutText, startButton];
-    this.runUiElements.push(shopButton);
-    selectedCat.container.setData('role', 'selectedCat');
-    selectedRoomba.setData('role', 'selectedRoomba');
-    loadoutText.setData('role', 'loadoutText');
-
     const shopTitle = this.add
       .text(-350, -150, 'Custom Kitty Shop', this.textStyle(24, '#fffad0'))
       .setOrigin(0, 0.5)
@@ -708,17 +721,378 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .text(350, -150, '', { ...this.textStyle(22, '#dff7ff'), align: 'right' })
       .setOrigin(1, 0.5)
       .setStroke('#17347e', 5);
-    const backButton = this.createOverlayButton(-350, 204, 120, 38, 'Back', 0xffd166, () => this.showOverlayMode('run'));
+    const backButton = this.createOverlayButton(-350, 204, 120, 38, 'Back', 0xffd166, () => this.showOverlayMode('launch'));
 
-    this.overlay.add([backdrop, panel, this.titleText, this.instructionText, ...this.runUiElements, shopTitle, this.shopBasketText, backButton]);
+    this.overlay.add([backdrop, panel, this.titleText, this.instructionText, shopTitle, this.shopBasketText, backButton]);
     this.shopUiElements = [shopTitle, this.shopBasketText, backButton];
+    this.createLaunchScreen();
+    this.createMilkMapScreen();
     this.createShopCards();
-    this.createLevelSelector();
-    this.createSpeedSelector();
-    this.createModeSelector();
     this.createAudioSettings();
     this.updateShopUi();
-    this.showOverlayMode('run');
+    this.showOverlayMode('launch');
+  }
+
+  private createLaunchScreen() {
+    this.launchUiElements = [];
+
+    const heroCat = this.createEyeTrackedCat(-250, -36, this.getSelectedCosmetic().run1, this.getSelectedCosmetic().style === 'nyan' ? 1.25 : 1.08, this.getSelectedCosmetic().style === 'nyan');
+    heroCat.container.setData('role', 'launchSelectedCat');
+    this.overlay.add(heroCat.container);
+    this.launchUiElements.push(heroCat.container);
+
+    const milkBadge = this.add.graphics();
+    milkBadge.fillStyle(0x17347e, 0.78);
+    milkBadge.fillRoundedRect(126, -138, 220, 40, 14);
+    milkBadge.lineStyle(3, 0xffffff, 0.76);
+    milkBadge.strokeRoundedRect(126, -138, 220, 40, 14);
+    this.overlay.add(milkBadge);
+    this.launchUiElements.push(milkBadge);
+
+    const milkText = this.add
+      .text(236, -118, '', this.textStyle(17, '#fffad0'))
+      .setOrigin(0.5)
+      .setStroke('#17347e', 4);
+    milkText.setData('role', 'launchMilkTotal');
+    this.overlay.add(milkText);
+    this.launchUiElements.push(milkText);
+
+    const selectedPanel = this.add.graphics();
+    selectedPanel.fillStyle(0x17347e, 0.88);
+    selectedPanel.fillRoundedRect(-60, -68, 420, 104, 18);
+    selectedPanel.lineStyle(4, 0xffffff, 0.8);
+    selectedPanel.strokeRoundedRect(-60, -68, 420, 104, 18);
+    this.overlay.add(selectedPanel);
+    this.launchUiElements.push(selectedPanel);
+
+    const selectedTitle = this.add
+      .text(-34, -42, '', this.textStyle(24, '#fffad0'))
+      .setOrigin(0, 0.5)
+      .setStroke('#17347e', 5);
+    selectedTitle.setData('role', 'launchSelectedTitle');
+    this.overlay.add(selectedTitle);
+    this.launchUiElements.push(selectedTitle);
+
+    const selectedBody = this.add
+      .text(-34, -6, '', { ...this.textStyle(15, '#dff7ff'), wordWrap: { width: 360 }, lineSpacing: 3 })
+      .setOrigin(0, 0.5)
+      .setStroke('#17347e', 3);
+    selectedBody.setData('role', 'launchSelectedBody');
+    this.overlay.add(selectedBody);
+    this.launchUiElements.push(selectedBody);
+
+    const startButton = this.createOverlayButton(86, 78, 190, 54, 'Start Run', 0x53d36d, () => this.startGame());
+    const mapButton = this.createOverlayButton(286, 78, 150, 54, 'Milk Map', 0xffd166, () => this.showOverlayMode('map'));
+    const shopButton = this.createOverlayButton(286, 148, 150, 42, 'Shop', 0xff7aa8, () => this.showOverlayMode('shop'));
+    this.overlay.add([startButton, mapButton, shopButton]);
+    this.launchUiElements.push(startButton, mapButton, shopButton);
+
+    this.createSpeedSelector();
+
+    const hintText = this.add
+      .text(0, 218, 'Pick a route on the Milk Map, then start the run from here.', this.textStyle(15, '#ffffff'))
+      .setOrigin(0.5)
+      .setStroke('#17347e', 4);
+    this.overlay.add(hintText);
+    this.launchUiElements.push(hintText);
+
+    this.updateLaunchUi();
+  }
+
+  private createMilkMapScreen() {
+    this.runUiElements = [];
+    this.mapNodeButtons = [];
+    this.mapCardElements = [];
+
+    const hud = this.add.graphics();
+    hud.fillStyle(0x17347e, 0.86);
+    hud.fillRoundedRect(-386, -184, 772, 40, 14);
+    hud.lineStyle(3, 0xffffff, 0.78);
+    hud.strokeRoundedRect(-386, -184, 772, 40, 14);
+    this.runUiElements.push(hud);
+    this.overlay.add(hud);
+
+    const milkText = this.add
+      .text(232, -164, `Milk bottles: ${this.getTotalMilk()}/81`, this.textStyle(17, '#fffad0'))
+      .setOrigin(0.5)
+      .setStroke('#17347e', 4);
+    milkText.setData('role', 'mapMilkTotal');
+    this.runUiElements.push(milkText);
+    this.overlay.add(milkText);
+
+    const selectedCat = this.createEyeTrackedCat(-338, -164, this.getSelectedCosmetic().run1, this.getSelectedCosmetic().style === 'nyan' ? 0.42 : 0.36, this.getSelectedCosmetic().style === 'nyan');
+    selectedCat.container.setData('role', 'selectedCat');
+    this.runUiElements.push(selectedCat.container);
+    this.overlay.add(selectedCat.container);
+
+    const shopButton = this.createOverlayButton(320, 202, 112, 36, 'Shop', 0xffd166, () => this.showOverlayMode('shop'));
+    this.runUiElements.push(shopButton);
+    this.overlay.add(shopButton);
+    const backButton = this.createOverlayButton(320, 158, 112, 36, 'Back', 0xff7aa8, () => this.showOverlayMode('launch'));
+    this.runUiElements.push(backButton);
+    this.overlay.add(backButton);
+
+    this.createMapWorldBands();
+    this.createMapConnections();
+    this.createMapNodes();
+    this.mapCatAvatar = this.add.image(0, 0, this.getSelectedCosmetic().run1).setScale(0.26);
+    this.overlay.add(this.mapCatAvatar);
+    this.runUiElements.push(this.mapCatAvatar);
+    this.createMapPreviewCard();
+    this.updateMapUi();
+  }
+
+  private createMapWorldBands() {
+    WORLDS.forEach((world, index) => {
+      const centerX = -270 + index * 286;
+      const band = this.add.graphics();
+      band.fillStyle(Phaser.Display.Color.HexStringToColor(world.palette.background).color, 0.96);
+      band.fillRoundedRect(centerX - 136, -132, 264, 270, 18);
+      band.lineStyle(4, world.palette.pathEdge, 0.82);
+      band.strokeRoundedRect(centerX - 136, -132, 264, 270, 18);
+      band.fillStyle(world.palette.band, 0.34);
+      for (let y = -106; y < 128; y += 44) {
+        band.fillRoundedRect(centerX - 120, y, 232, 20, 10);
+      }
+      this.overlay.add(band);
+      this.runUiElements.push(band);
+
+    const banner = this.add
+        .text(centerX, -116, world.displayName, { ...this.textStyle(15, '#ffffff'), align: 'center', wordWrap: { width: 224 } })
+        .setOrigin(0.5)
+        .setStroke('#17347e', 4);
+      this.overlay.add(banner);
+      this.runUiElements.push(banner);
+
+      const propText = this.add
+        .text(centerX, 116, world.mapSkin.pathName, { ...this.textStyle(12, '#17347e'), align: 'center' })
+        .setOrigin(0.5);
+      this.overlay.add(propText);
+      this.runUiElements.push(propText);
+    });
+
+    const jokeSign = this.add
+      .text(-346, -68, 'NO CATS\nON COUNTER', { ...this.textStyle(10, '#6d3f28'), align: 'center', lineSpacing: -4 })
+      .setOrigin(0.5)
+      .setAngle(-7);
+    const trapBox = this.add
+      .text(-24, 34, 'Definitely\nNot A Trap', { ...this.textStyle(10, '#563816'), align: 'center', lineSpacing: -3 })
+      .setOrigin(0.5)
+      .setAngle(5);
+    const council = this.add
+      .text(332, -50, 'cat\ncouncil', { ...this.textStyle(10, '#17347e'), align: 'center', lineSpacing: -4 })
+      .setOrigin(0.5);
+    this.overlay.add([jokeSign, trapBox, council]);
+    this.runUiElements.push(jokeSign, trapBox, council);
+  }
+
+  private createMapConnections() {
+    MAP_CONNECTIONS.forEach((connection) => {
+      const from = MAP_NODES.find((node) => node.id === connection.from);
+      const to = MAP_NODES.find((node) => node.id === connection.to);
+      if (!from || !to) return;
+      const world = getWorldForNode(to);
+      const line = this.add.graphics();
+      line.lineStyle(8, world.palette.pathEdge, 0.9);
+      line.lineBetween(from.x - GAME_WIDTH / 2, from.y - GAME_HEIGHT / 2, to.x - GAME_WIDTH / 2, to.y - GAME_HEIGHT / 2);
+      line.lineStyle(4, world.palette.path, 0.92);
+      line.lineBetween(from.x - GAME_WIDTH / 2, from.y - GAME_HEIGHT / 2, to.x - GAME_WIDTH / 2, to.y - GAME_HEIGHT / 2);
+      this.overlay.add(line);
+      this.runUiElements.push(line);
+    });
+  }
+
+  private createMapNodes() {
+    MAP_NODES.forEach((node) => {
+      const world = getWorldForNode(node);
+      const container = this.add.container(node.x - GAME_WIDTH / 2, node.y - GAME_HEIGHT / 2);
+      const background = this.add.graphics();
+      const rating = this.add.graphics();
+      const labelText = this.add
+        .text(0, node.nodeType === 'gate' ? 32 : 38, node.nodeType === 'bonus' ? 'B' : node.nodeType === 'gate' ? 'Gate' : node.id.slice(-2), {
+          ...this.textStyle(10, '#ffffff'),
+          align: 'center'
+        })
+        .setOrigin(0.5)
+        .setStroke('#17347e', 3);
+      const clickZone = this.add.zone(0, 0, node.nodeType === 'gate' ? 76 : 58, node.nodeType === 'gate' ? 58 : 70).setInteractive();
+      container.add([background, rating, labelText, clickZone]);
+      clickZone.on('pointerup', () => this.selectMapNode(node.id));
+      clickZone.on('pointerover', () => this.tweens.add({ targets: container, scale: 1.08, duration: 90, ease: 'Sine.easeOut' }));
+      clickZone.on('pointerout', () => this.tweens.add({ targets: container, scale: 1, duration: 90, ease: 'Sine.easeOut' }));
+      container.setData('worldAccent', world.palette.accent);
+      this.overlay.add(container);
+      this.runUiElements.push(container);
+      this.mapNodeButtons.push({ node, container, background, rating, labelText });
+    });
+  }
+
+  private createMapPreviewCard() {
+    const card = this.add.graphics();
+    card.fillStyle(0x17347e, 0.92);
+    card.fillRoundedRect(-384, 148, 568, 88, 18);
+    card.lineStyle(4, 0xffffff, 0.82);
+    card.strokeRoundedRect(-384, 148, 568, 88, 18);
+    const title = this.add.text(-360, 164, '', this.textStyle(22, '#fffad0')).setStroke('#17347e', 5);
+    title.setData('role', 'mapCardTitle');
+    const body = this.add.text(-360, 195, '', { ...this.textStyle(14, '#dff7ff'), wordWrap: { width: 388 }, lineSpacing: 2 }).setStroke('#17347e', 3);
+    body.setData('role', 'mapCardBody');
+    const playButton = this.createOverlayButton(110, 192, 118, 44, 'Play', 0x53d36d, () => this.startGame());
+    playButton.setData('role', 'mapPlayButton');
+    this.overlay.add([card, title, body, playButton]);
+    this.runUiElements.push(card, title, body, playButton);
+    this.mapCardElements.push(card, title, body, playButton);
+  }
+
+  private selectMapNode(nodeId: string) {
+    if (this.phase !== 'start') return;
+    this.selectedMapNodeId = nodeId;
+    const node = this.getSelectedMapNode();
+    this.selectedLevelId = getWorldForNode(node).themeKey;
+    this.createWorld();
+    this.saveShopState();
+    this.updateMapUi();
+    playBasketSound(this.isMapNodePlayable(node) ? 'equip' : 'deny');
+  }
+
+  private updateMapUi() {
+    const selectedNode = this.getSelectedMapNode();
+    const totalMilk = this.getTotalMilk();
+    for (const element of this.runUiElements) {
+      const role = element.getData('role') as string | undefined;
+      if (role === 'mapMilkTotal') {
+        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${totalMilk}/81`);
+      } else if (role === 'selectedCat') {
+        this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
+      } else if (role === 'mapCardTitle') {
+        (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
+      } else if (role === 'mapCardBody') {
+        (element as Phaser.GameObjects.Text).setText(this.getMapCardBody(selectedNode));
+      } else if (role === 'mapPlayButton') {
+        element.setVisible(this.overlayMode === 'map' && this.isMapNodePlayable(selectedNode));
+      }
+    }
+
+    if (this.mapCatAvatar) {
+      this.mapCatAvatar
+        .setTexture(this.getSelectedCosmetic().run1)
+        .setPosition(selectedNode.x - GAME_WIDTH / 2, selectedNode.y - GAME_HEIGHT / 2 - 22)
+        .setScale(this.getSelectedCosmetic().style === 'nyan' ? 0.24 : 0.26)
+        .setVisible(this.overlayMode === 'map' && this.isMapNodePlayable(selectedNode));
+    }
+
+    for (const button of this.mapNodeButtons) {
+      this.drawMapNodeButton(button);
+    }
+  }
+
+  private updateLaunchUi() {
+    if (this.launchUiElements.length === 0) return;
+    const selectedNode = this.getSelectedMapNode();
+    const world = getWorldForNode(selectedNode);
+    const bottles = this.mapProgress[selectedNode.id] ?? 0;
+    const bottleLabel = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
+    for (const element of this.launchUiElements) {
+      const role = element.getData('role') as string | undefined;
+      if (role === 'launchSelectedCat') {
+        this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
+      } else if (role === 'launchMilkTotal') {
+        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${this.getTotalMilk()}/81`);
+      } else if (role === 'launchSelectedTitle') {
+        (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
+      } else if (role === 'launchSelectedBody') {
+        (element as Phaser.GameObjects.Text).setText(`${world.displayName} - ${bottleLabel}\n${selectedNode.flavor}`);
+      }
+    }
+  }
+
+  private drawMapNodeButton(button: MapNodeButton) {
+    const { node, background, rating } = button;
+    const world = getWorldForNode(node);
+    const selected = node.id === this.selectedMapNodeId;
+    const bottles = this.mapProgress[node.id] ?? 0;
+    const unlocked = this.isMapNodeUnlocked(node);
+    const playable = this.isMapNodePlayable(node);
+
+    background.clear();
+    const alpha = unlocked ? 1 : 0.42;
+    if (node.nodeType === 'gate') {
+      background.fillStyle(playable ? 0x53d36d : 0x6b5b55, alpha);
+      background.fillRoundedRect(-34, -24, 68, 48, 12);
+      background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.72);
+      background.strokeRoundedRect(-34, -24, 68, 48, 12);
+      background.fillStyle(playable ? 0xfff06a : 0x2b1c19, 0.95);
+      background.fillTriangle(-8, -6, 16, 0, -8, 6);
+    } else {
+      background.fillStyle(node.nodeType === 'bonus' ? 0xffd166 : world.palette.node, alpha);
+      background.fillCircle(0, 0, node.nodeType === 'bonus' ? 24 : 22);
+      background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : world.palette.pathEdge, selected ? 1 : 0.88);
+      background.strokeCircle(0, 0, node.nodeType === 'bonus' ? 24 : 22);
+      if (!playable && bottles === 0) {
+        background.fillStyle(0x17347e, 0.82);
+        background.fillRoundedRect(-10, -4, 20, 16, 5);
+        background.fillCircle(0, -7, 8);
+      } else if (selected) {
+        background.fillStyle(0xff7aa8, 0.95);
+        background.fillCircle(-5, -6, 6);
+        background.fillCircle(7, -6, 6);
+        background.fillCircle(0, 4, 7);
+      }
+    }
+
+    rating.clear();
+    if (bottles > 0 && node.nodeType !== 'gate') {
+      for (let i = 0; i < 3; i += 1) {
+        rating.fillStyle(i < bottles ? 0xbfefff : 0x17347e, i < bottles ? 1 : 0.34);
+        rating.fillRoundedRect(-18 + i * 13, 22, 8, 15, 3);
+        rating.fillStyle(0xffffff, i < bottles ? 0.75 : 0.2);
+        rating.fillRoundedRect(-17 + i * 13, 24, 6, 4, 2);
+      }
+    }
+
+    button.labelText.setColor(unlocked ? '#ffffff' : '#b9c5d6');
+  }
+
+  private getMapCardBody(node: MapNode) {
+    const world = getWorldForNode(node);
+    if (node.nodeType === 'gate') {
+      return this.isMapNodeUnlocked(node)
+        ? `${world.mapSkin.gateName} is open. The next world is waiting.`
+        : `${node.flavor} Replay earlier levels to earn more.`;
+    }
+    const bottles = this.mapProgress[node.id] ?? 0;
+    const rating = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
+    const locked = this.isMapNodeUnlocked(node) ? '' : ` Need ${node.unlock.requiredMilkBottles} total milk.`;
+    return `World: ${world.displayName}  Best: ${rating}\nGoal: ${node.flavor}${locked}`;
+  }
+
+  private getSelectedMapNode() {
+    return MAP_NODES.find((node) => node.id === this.selectedMapNodeId) ?? MAP_NODES[0];
+  }
+
+  private isMapNodeUnlocked(node: MapNode) {
+    if (this.getTotalMilk() < node.unlock.requiredMilkBottles) return false;
+    if (!node.unlock.previousNodeId) return true;
+    if (node.unlock.previousNodeId.includes('_gate')) return this.isMapGateOpen(node.unlock.previousNodeId);
+    return (this.mapProgress[node.unlock.previousNodeId] ?? 0) > 0;
+  }
+
+  private isMapGateOpen(gateId: string) {
+    const gate = MAP_NODES.find((node) => node.id === gateId);
+    return gate ? this.isMapNodeUnlocked(gate) : false;
+  }
+
+  private isMapNodePlayable(node: MapNode) {
+    return node.nodeType !== 'gate' && this.isMapNodeUnlocked(node);
+  }
+
+  private getTotalMilk() {
+    return Object.values(this.mapProgress).reduce((total, bottles) => total + Phaser.Math.Clamp(bottles, 0, 3), 0);
+  }
+
+  private getNewestUnlockedNode() {
+    const playableNodes = MAP_NODES.filter((node) => this.isMapNodePlayable(node));
+    return playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
   }
 
   private createShopCards() {
@@ -1323,12 +1697,12 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private updateRunLoadoutUi() {
-    for (const element of this.runUiElements) {
+    for (const element of this.launchUiElements) {
       const role = element.getData('role') as string | undefined;
-      if (role === 'selectedCat') {
+      if (role === 'launchSelectedCat') {
         this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
       } else if (role === 'selectedRoomba') {
-        element.setVisible(this.selectedAccessoryId === 'roomba' && this.overlayMode === 'run');
+        element.setVisible(this.selectedAccessoryId === 'roomba' && this.overlayMode === 'launch');
       } else if (role === 'loadoutText') {
         (element as Phaser.GameObjects.Text).setText(this.getSelectedCosmetic().name);
       }
@@ -1338,11 +1712,18 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private showOverlayMode(mode: OverlayMode) {
     if (this.phase !== 'start') return;
     this.overlayMode = mode;
-    this.setRunUiVisible(mode === 'run');
+    this.setLaunchUiVisible(mode === 'launch');
+    this.setRunUiVisible(mode === 'map');
     this.setShopUiVisible(mode === 'shop');
-    this.titleText.setText(mode === 'run' ? 'KITTY MILK RUN' : 'KITTY SHOP');
-    this.instructionText.setText('');
+    this.titleText
+      .setText(mode === 'launch' ? 'KITTY MILK RUN' : mode === 'map' ? 'THE MILK MAP' : 'KITTY SHOP')
+      .setPosition(0, -202)
+      .setFontSize(48)
+      .setScale(1);
+    this.instructionText.setText('').setPosition(0, 204).setFontSize(22);
     this.updateShopUi();
+    this.updateLaunchUi();
+    this.updateMapUi();
   }
 
   private drawShopCard(graphics: Phaser.GameObjects.Graphics, selected: boolean, unlocked: boolean, blocked = false) {
@@ -1357,34 +1738,38 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private createSpeedSelector() {
     const speedTitle = this.add
-      .text(0, 16, 'How Bad Do You Want It?', this.textStyle(20, '#fffad0'))
+      .text(-250, 72, 'Speed', this.textStyle(20, '#fffad0'))
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
     this.overlay.add(speedTitle);
-    this.runUiElements.push(speedTitle);
+    this.launchUiElements.push(speedTitle);
 
     this.speedButtons = [];
     SPEED_OPTIONS.forEach((option, index) => {
-      const button = this.add.container(-210 + index * 140, 58);
+      const column = index % 2;
+      const row = Math.floor(index / 2);
+      const baseX = -326 + column * 150;
+      const baseY = 118 + row * 56;
+      const button = this.add.container(baseX, baseY);
       const background = this.add.graphics();
-      const yarn = this.add.image(-43, 0, Phaser.Math.RND.pick([ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple])).setScale(0.36);
+      const yarn = this.add.image(-45, 0, Phaser.Math.RND.pick([ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple])).setScale(0.36);
       const labelText = this.add
-        .text(14, 0, option.label, { ...this.textStyle(12, '#ffffff'), align: 'center', lineSpacing: -3 })
+        .text(16, 0, option.label, { ...this.textStyle(11, '#ffffff'), align: 'center', lineSpacing: -3 })
         .setOrigin(0.5);
-      const clickZone = this.add.zone(0, 0, 126, 50).setInteractive();
+      const clickZone = this.add.zone(0, 0, 136, 44).setInteractive();
       button.add([background, yarn, labelText, clickZone]);
       clickZone.on('pointerup', () => {
         this.shopPointerHandled = true;
         this.setSpeedMultiplier(option.multiplier);
       });
       clickZone.on('pointerover', () => {
-        this.tweens.add({ targets: button, y: 52, duration: 90, ease: 'Sine.easeOut' });
+        this.tweens.add({ targets: button, y: baseY - 5, duration: 90, ease: 'Sine.easeOut' });
       });
       clickZone.on('pointerout', () => {
-        this.tweens.add({ targets: button, y: 58, duration: 90, ease: 'Sine.easeOut' });
+        this.tweens.add({ targets: button, y: baseY, duration: 90, ease: 'Sine.easeOut' });
       });
       this.overlay.add(button);
-      this.runUiElements.push(button);
+      this.launchUiElements.push(button);
       this.speedButtons.push({ option, container: button, background, yarn, labelText });
     });
 
@@ -1464,7 +1849,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     clickZone.on('pointerover', () => this.drawAudioToggleButton({ id, container: button, background, knob, labelText }, true));
     clickZone.on('pointerout', () => this.drawAudioToggleButton({ id, container: button, background, knob, labelText }, false));
     this.overlay.add(button);
-    this.runUiElements.push(button);
+    this.shopUiElements.push(button);
     const audioButton = { id, container: button, background, knob, labelText };
     this.audioToggleButtons.push(audioButton);
     return audioButton;
@@ -1486,7 +1871,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     clickZone.on('pointerdown', updateFromPointer);
     clickZone.on('drag', updateFromPointer);
     this.overlay.add(slider);
-    this.runUiElements.push(slider);
+    this.shopUiElements.push(slider);
     return { container: slider, track, fill, knob, labelText };
   }
 
@@ -1666,11 +2051,11 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private drawSpeedButton(graphics: Phaser.GameObjects.Graphics, selected: boolean, tint: number) {
     graphics.clear();
     graphics.fillStyle(selected ? tint : 0x17347e, selected ? 0.96 : 0.88);
-    graphics.fillRoundedRect(-62, -25, 124, 50, 16);
+    graphics.fillRoundedRect(-68, -22, 136, 44, 14);
     graphics.lineStyle(selected ? 5 : 3, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.72);
-    graphics.strokeRoundedRect(-62, -25, 124, 50, 16);
+    graphics.strokeRoundedRect(-68, -22, 136, 44, 14);
     graphics.fillStyle(0xffffff, selected ? 0.34 : 0.12);
-    graphics.fillCircle(-43, 0, 16);
+    graphics.fillCircle(-45, 0, 15);
   }
 
   private createParticles() {
@@ -1752,7 +2137,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.pawTrailTimer = 0;
     this.displayedProgress = 0;
     this.obstacleHits = 0;
-    this.overlayMode = 'run';
+    this.overlayMode = 'launch';
   }
 
   private loadShopState() {
@@ -1786,7 +2171,16 @@ export class KittyMilkRunScene extends Phaser.Scene {
       const storedSpeed = Number.parseFloat(localStorage.getItem(STORAGE_KEYS.speed) ?? '1');
       this.speedMultiplier = SPEED_OPTIONS.some((option) => option.multiplier === storedSpeed) ? storedSpeed : 1;
       const storedLevel = localStorage.getItem(STORAGE_KEYS.level) as LevelId | null;
-      this.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? storedLevel : 'meadow';
+      this.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? storedLevel : 'kitchen';
+      const storedProgress = JSON.parse(localStorage.getItem(STORAGE_KEYS.mapProgress) ?? '{}') as Record<string, number>;
+      this.mapProgress = Object.fromEntries(
+        Object.entries(storedProgress)
+          .filter(([id, bottles]) => MAP_NODES.some((node) => node.id === id) && Number.isFinite(Number(bottles)))
+          .map(([id, bottles]) => [id, Phaser.Math.Clamp(Number(bottles), 0, 3)])
+      );
+      const storedMapNode = localStorage.getItem(STORAGE_KEYS.selectedMapNode);
+      this.selectedMapNodeId = MAP_NODES.some((node) => node.id === storedMapNode) ? storedMapNode! : this.getNewestUnlockedNode().id;
+      this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
       const storedMode = localStorage.getItem(STORAGE_KEYS.mode) as RunMode | null;
       this.runMode = storedMode === 'farm-for-yarn' ? 'farm-for-yarn' : 'milk-run';
       this.soundFxEnabled = localStorage.getItem(STORAGE_KEYS.soundFx) !== 'false';
@@ -1805,7 +2199,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
       this.unlockedTrails = new Set(['muddy-feet']);
       this.unlockedMouseOptions = new Set(['classic-mouse']);
       this.speedMultiplier = 1;
-      this.selectedLevelId = 'meadow';
+      this.selectedLevelId = 'kitchen';
+      this.mapProgress = {};
+      this.selectedMapNodeId = MAP_NODES[0].id;
       this.runMode = 'milk-run';
       this.soundFxEnabled = true;
       this.musicEnabled = true;
@@ -1831,6 +2227,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
       localStorage.setItem(STORAGE_KEYS.soundFx, String(this.soundFxEnabled));
       localStorage.setItem(STORAGE_KEYS.music, String(this.musicEnabled));
       localStorage.setItem(STORAGE_KEYS.audioVolume, String(this.audioVolume));
+      localStorage.setItem(STORAGE_KEYS.mapProgress, JSON.stringify(this.mapProgress));
+      localStorage.setItem(STORAGE_KEYS.selectedMapNode, this.selectedMapNodeId);
     } catch {
       // Local storage is a convenience for the shop loop; the game remains playable without it.
     }
@@ -1839,7 +2237,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private handleSpace() {
     if (this.phase === 'start') {
       if (this.overlayMode === 'shop') {
-        this.showOverlayMode('run');
+        this.showOverlayMode('launch');
+      } else if (this.overlayMode === 'map') {
+        this.showOverlayMode('launch');
       } else {
         this.startGame();
       }
@@ -1955,12 +2355,19 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.pauseButton.setVisible(false);
     this.startCatBob();
     this.startRunAnimationTimer();
-    this.showOverlayMode('run');
+    this.showOverlayMode('launch');
     this.updateHud();
   }
 
   private startGame() {
     if (this.phase !== 'start') return;
+    const selectedNode = this.getSelectedMapNode();
+    if (!this.isMapNodePlayable(selectedNode)) {
+      this.floatText('Needs more milk', GAME_WIDTH / 2, 150, '#fff2a1');
+      playBasketSound('deny');
+      return;
+    }
+    this.selectedLevelId = getWorldForNode(selectedNode).themeKey;
     this.phase = 'countdown';
     this.speed = this.getStartingSpeed();
     this.cat.setTexture(this.getSelectedCosmetic().run1);
@@ -2472,6 +2879,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.pauseButton.setVisible(false);
     const farmRun = this.isFarmForYarn();
     const perfectRun = !farmRun && this.obstacleHits === 0 && this.hearts === INITIAL_HEARTS;
+    if (!farmRun) {
+      this.recordMapLevelResult(perfectRun);
+    }
     this.obstacles.clear(true, true);
     this.yarns.clear(true, true);
     playGameSound(this, 'win');
@@ -2500,6 +2910,17 @@ export class KittyMilkRunScene extends Phaser.Scene {
       repeat: 18,
       callback: () => this.emitter.explode(7, Phaser.Math.Between(330, 625), Phaser.Math.Between(175, 360))
     });
+  }
+
+  private recordMapLevelResult(perfectRun: boolean) {
+    const node = this.getSelectedMapNode();
+    if (node.nodeType === 'gate') return;
+    const earnedBottles = perfectRun || this.yarnScore >= node.scoreTargets.threeBottleScore ? 3 : this.yarnScore >= node.scoreTargets.twoBottleScore ? 2 : 1;
+    this.mapProgress[node.id] = Math.max(this.mapProgress[node.id] ?? 0, earnedBottles);
+    this.selectedMapNodeId = this.getNewestUnlockedNode().id;
+    this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
+    this.saveShopState();
+    this.updateMapUi();
   }
 
   private loseGame() {
@@ -2587,6 +3008,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private setShopUiVisible(visible: boolean) {
     this.shopUiElements.forEach((element) => element.setVisible(visible));
+  }
+
+  private setLaunchUiVisible(visible: boolean) {
+    this.launchUiElements.forEach((element) => element.setVisible(visible));
   }
 
   private setRunUiVisible(visible: boolean) {
@@ -2690,7 +3115,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private getStartingSpeed() {
-    return INITIAL_SPEED * this.speedMultiplier;
+    const world = WORLDS.find((candidate) => candidate.themeKey === this.selectedLevelId) ?? WORLDS[0];
+    return INITIAL_SPEED * this.speedMultiplier * world.difficultyProfile.speedMultiplier;
   }
 
   private getMaxSpeed() {
