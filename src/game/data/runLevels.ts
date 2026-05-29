@@ -64,6 +64,21 @@ export const LEVELS: LevelOption[] = [
     hudTint: 0x3f7b45,
     maxYarn: 38,
     decorKeys: [ASSETS.flower, ASSETS.grassTuft, ASSETS.paw, ASSETS.cucumber]
+  },
+  {
+    id: 'magical-kingdom',
+    name: 'Milk Kingdom',
+    order: 4,
+    tagline: 'Star lanterns and moon-milk magic',
+    backgroundColor: '#7d8fe8',
+    backgroundBand: 0xf8d7ff,
+    roadOuter: 0x6e58b8,
+    roadInner: 0xfff7ef,
+    roadEdge: 0xfff3a3,
+    laneMark: 0xffd166,
+    hudTint: 0x56479a,
+    maxYarn: 40,
+    decorKeys: [ASSETS.magicKingdomStarLantern, ASSETS.magicKingdomCrystalMushroom, ASSETS.magicKingdomTower, ASSETS.sparkle]
   }
 ];
 

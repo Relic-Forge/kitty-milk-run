@@ -54,6 +54,12 @@ export const ASSETS = {
   magicMushroom: 'magic-mushroom',
   kingdomTower: 'kingdom-tower',
   starLantern: 'star-lantern',
+  magicKingdomBackdrop: 'magic-kingdom-backdrop',
+  magicKingdomTower: 'magic-kingdom-tower',
+  magicKingdomStarLantern: 'magic-kingdom-star-lantern',
+  magicKingdomRoyalMilk: 'magic-kingdom-royal-milk',
+  magicKingdomJellyCrown: 'magic-kingdom-jelly-crown',
+  magicKingdomCrystalMushroom: 'magic-kingdom-crystal-mushroom',
   sparkle: 'sparkle',
   finishFlag: 'finish-flag',
   foil: 'foil'
@@ -129,6 +135,12 @@ export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.svg(ASSETS.magicMushroom, '/assets/magic-mushroom.svg', { width: 48, height: 46 });
   scene.load.svg(ASSETS.kingdomTower, '/assets/kingdom-tower.svg', { width: 72, height: 116 });
   scene.load.svg(ASSETS.starLantern, '/assets/star-lantern.svg', { width: 42, height: 54 });
+  scene.load.image(ASSETS.magicKingdomBackdrop, '/assets/magical-kingdom/magical-milk-kingdom-backdrop.png');
+  scene.load.image(ASSETS.magicKingdomTower, '/assets/magical-kingdom/milk-tower.png');
+  scene.load.image(ASSETS.magicKingdomStarLantern, '/assets/magical-kingdom/star-lantern.png');
+  scene.load.image(ASSETS.magicKingdomRoyalMilk, '/assets/magical-kingdom/royal-milk-bottle.png');
+  scene.load.image(ASSETS.magicKingdomJellyCrown, '/assets/magical-kingdom/wobble-jelly-crown.png');
+  scene.load.image(ASSETS.magicKingdomCrystalMushroom, '/assets/magical-kingdom/crystal-mushroom.png');
   scene.load.svg(ASSETS.sparkle, '/assets/sparkle.svg', { width: 44, height: 44 });
   scene.load.svg(ASSETS.finishFlag, '/assets/finish-flag.svg', { width: 76, height: 76 });
   scene.load.audio(SOUNDS.catMewFood, '/assets/audio/cat-mew-food.wav');

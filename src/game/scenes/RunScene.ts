@@ -277,6 +277,8 @@ export class RunScene extends BaseScene {
     }
 
     if (levelId === 'magical-kingdom') {
+      const backdrop = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, ASSETS.magicKingdomBackdrop).setDepth(DEPTHS.background).setAlpha(0.58);
+      this.addWorldObject(backdrop);
       this.createKingdomSkyline();
     }
 
@@ -309,7 +311,7 @@ export class RunScene extends BaseScene {
 
   private createKingdomSkyline() {
     for (const x of [88, 846]) {
-      const tower = this.add.image(x, 104, ASSETS.kingdomTower).setDepth(DEPTHS.background).setScale(x < GAME_WIDTH / 2 ? 1.08 : 0.96);
+      const tower = this.add.image(x, 104, ASSETS.magicKingdomTower).setDepth(DEPTHS.background).setScale(x < GAME_WIDTH / 2 ? 1.08 : 0.96);
       tower.setAlpha(0.76);
       this.addWorldObject(tower, 0.18);
     }
@@ -415,7 +417,8 @@ export class RunScene extends BaseScene {
     this.finishLine.add(this.add.image(-290, -10, ASSETS.finishFlag));
     this.finishLine.add(this.add.image(290, -10, ASSETS.finishFlag).setFlipX(true));
 
-    this.milkBottle = this.add.image(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE - 120, ASSETS.milkBottle).setDepth(DEPTHS.finish);
+    const finishTexture = this.selectedLevelId === 'magical-kingdom' ? ASSETS.magicKingdomRoyalMilk : ASSETS.milkBottle;
+    this.milkBottle = this.add.image(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE - 120, finishTexture).setDepth(DEPTHS.finish);
   }
 
   private createOverlay() {
@@ -896,7 +899,7 @@ export class RunScene extends BaseScene {
 
   private createLevelSelector() {
     this.levelButtons = LEVELS.map((option, index) => {
-      const button = this.add.container(-97 + index * 194, -42);
+      const button = this.add.container((index - (LEVELS.length - 1) / 2) * 194, -42);
       const background = this.add.graphics();
       const icon = this.add.graphics();
       const numberText = this.add
@@ -1782,15 +1785,15 @@ export class RunScene extends BaseScene {
     obstacle.laneIndex = lane;
     obstacle.kind = kind;
     obstacle.setDepth(DEPTHS.obstacles);
-    obstacle.setScale(kind === 'dog' ? 0.88 : kind === 'vacuum' ? 0.78 : 0.92);
-    obstacle.setData('hitRadiusX', kind === 'dog' ? 55 : kind === 'vacuum' ? 62 : 48);
-    obstacle.setData('hitRadiusY', kind === 'dog' ? 45 : kind === 'vacuum' ? 48 : 38);
+    obstacle.setScale(kind === 'dog' ? 0.88 : kind === 'vacuum' ? 0.78 : kind === 'jelly-crown' ? 1 : 0.92);
+    obstacle.setData('hitRadiusX', kind === 'dog' ? 55 : kind === 'vacuum' ? 62 : kind === 'jelly-crown' ? 46 : 48);
+    obstacle.setData('hitRadiusY', kind === 'dog' ? 45 : kind === 'vacuum' ? 48 : kind === 'jelly-crown' ? 34 : 38);
     this.obstacles.add(obstacle);
     this.nextBlockedLane = lane;
 
     this.tweens.add({
       targets: obstacle,
-      angle: kind === 'cucumber' || kind === 'foil' ? 6 : 3,
+      angle: kind === 'cucumber' || kind === 'foil' || kind === 'jelly-crown' ? 6 : 3,
       duration: kind === 'cucumber' || kind === 'foil' ? 150 : 220,
       yoyo: true,
       repeat: -1,
@@ -1800,6 +1803,7 @@ export class RunScene extends BaseScene {
 
   private pickObstacleType(): ObstacleType {
     const roll = Math.random();
+    if (this.selectedLevelId === 'magical-kingdom' && roll < 0.38) return 'jelly-crown';
     if (this.distance > 2800 && roll < 0.16) return 'vacuum';
     if (this.distance > 1500 && roll < 0.34) return 'foil';
     return Phaser.Math.RND.pick(['dog', 'cucumber']);
@@ -1809,6 +1813,7 @@ export class RunScene extends BaseScene {
     if (kind === 'dog') return ASSETS.dog;
     if (kind === 'cucumber') return ASSETS.cucumber;
     if (kind === 'vacuum') return ASSETS.vacuum;
+    if (kind === 'jelly-crown') return ASSETS.magicKingdomJellyCrown;
     return ASSETS.foil;
   }
 

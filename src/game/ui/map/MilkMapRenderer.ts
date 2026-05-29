@@ -50,6 +50,8 @@ export class MilkMapRenderer {
   private mapNodeButtons: MapNodeButton[] = [];
   private mapCatAvatar?: Phaser.GameObjects.Image;
   private mapCatAvatarNodeId?: string;
+  private milkBottleCharacter?: Phaser.GameObjects.Graphics;
+  private milkTotalText?: Phaser.GameObjects.Text;
 
   constructor(private readonly config: MilkMapRendererConfig) {}
 
@@ -58,32 +60,18 @@ export class MilkMapRenderer {
     this.mapNodeButtons = [];
     this.mapCardElements.length = 0;
 
-    const hud = this.config.scene.add.graphics();
-    hud.fillStyle(0x17347e, 0.86);
-    hud.fillRoundedRect(-386, -184, 772, 40, 14);
-    hud.lineStyle(3, 0xffffff, 0.78);
-    hud.strokeRoundedRect(-386, -184, 772, 40, 14);
-    this.addElement(hud);
-
-    const milkText = this.config.scene.add
-      .text(232, -164, `Milk bottles: ${this.config.getTotalMilk()}/${this.config.getMapMilkGoal()}`, this.config.textStyle(17, '#fffad0'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    milkText.setData('role', 'mapMilkTotal');
-    this.addElement(milkText);
-
     const cosmetic = this.config.getSelectedCosmetic();
-    const selectedCat = this.config.createEyeTrackedCat(-338, -164, cosmetic.run1, cosmetic.style === 'nyan' ? 0.42 : 0.36, cosmetic.style === 'nyan');
-    selectedCat.setData('role', 'selectedCat');
-    this.addElement(selectedCat);
-
-    this.addElement(this.config.createOverlayButton(320, 202, 112, 36, 'Shop', 0xffd166, this.config.showShop));
-    this.addElement(this.config.createOverlayButton(320, 158, 112, 36, 'Back', 0xff7aa8, this.config.showLaunch));
 
     this.createAtlasPage();
+    this.milkBottleCharacter = this.config.scene.add.graphics();
+    this.milkTotalText = this.config.scene.add.text(348, -176, '', this.config.textStyle(12, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 4);
+    this.addElement(this.milkBottleCharacter);
+    this.addElement(this.milkTotalText);
     this.mapCatAvatar = this.config.scene.add.image(0, 0, cosmetic.run1).setScale(0.26);
     this.addElement(this.mapCatAvatar);
     this.createPreviewCard();
+    this.addElement(this.config.createOverlayButton(322, 220, 112, 36, 'Shop', 0xffd166, this.config.showShop));
+    this.addElement(this.config.createOverlayButton(322, 176, 112, 36, 'Back', 0xff7aa8, this.config.showLaunch));
     this.update();
   }
 
@@ -103,13 +91,11 @@ export class MilkMapRenderer {
   update() {
     const selectedNode = this.config.getSelectedMapNode();
     const totalMilk = this.config.getTotalMilk();
+    this.milkTotalText?.setText(`${totalMilk}/${this.config.getMapMilkGoal()}`);
+    if (this.milkBottleCharacter) this.drawMilkBottleCharacter(this.milkBottleCharacter, totalMilk, this.config.getMapMilkGoal());
     for (const element of this.elements) {
       const role = element.getData('role') as string | undefined;
-      if (role === 'mapMilkTotal') {
-        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${totalMilk}/${this.config.getMapMilkGoal()}`);
-      } else if (role === 'selectedCat') {
-        this.config.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.config.getSelectedCosmetic());
-      } else if (role === 'mapCardTitle') {
+      if (role === 'mapCardTitle') {
         (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
       } else if (role === 'mapCardBody') {
         (element as Phaser.GameObjects.Text).setText(this.config.getMapCardBody(selectedNode));
@@ -180,34 +166,34 @@ export class MilkMapRenderer {
     const band = this.config.scene.add.graphics();
     const background = Phaser.Display.Color.HexStringToColor(world.palette.background).color;
     band.fillStyle(background, 0.98);
-    band.fillRoundedRect(-326, -138, 652, 260, 24);
+    band.fillRoundedRect(-378, -174, 756, 304, 26);
     band.lineStyle(5, world.palette.pathEdge, 0.82);
-    band.strokeRoundedRect(-326, -138, 652, 260, 24);
+    band.strokeRoundedRect(-378, -174, 756, 304, 26);
     band.fillStyle(0xffffff, 0.2);
-    band.fillRoundedRect(-302, -116, 604, 216, 18);
+    band.fillRoundedRect(-350, -150, 700, 254, 20);
     band.fillStyle(world.palette.band, 0.18);
-    for (let y = -116; y < 124; y += 34) {
-      band.fillRoundedRect(-292, y, 128, 12, 6);
-      band.fillRoundedRect(-78, y + 12, 164, 12, 6);
-      band.fillRoundedRect(150, y - 6, 132, 12, 6);
+    for (let y = -144; y < 114; y += 34) {
+      band.fillRoundedRect(-332, y, 146, 12, 6);
+      band.fillRoundedRect(-94, y + 12, 184, 12, 6);
+      band.fillRoundedRect(168, y - 6, 150, 12, 6);
     }
     band.fillStyle(0xffffff, 0.3);
-    band.fillCircle(-260, -72, 40);
-    band.fillCircle(254, 82, 48);
-    band.fillCircle(24, 94, 24);
+    band.fillCircle(-306, -96, 42);
+    band.fillCircle(296, 76, 52);
+    band.fillCircle(20, 96, 26);
     this.addAtlasElement(band);
     this.createScenicProps(world.id);
 
-    this.addAtlasElement(this.config.scene.add.text(-294, -120, world.atlasLabel, { ...this.config.textStyle(11, '#17347e'), align: 'left' }).setOrigin(0, 0.5));
+    this.addAtlasElement(this.config.scene.add.text(-340, -151, world.atlasLabel, { ...this.config.textStyle(11, '#17347e'), align: 'left' }).setOrigin(0, 0.5));
     this.addAtlasElement(
       this.config.scene.add
-        .text(-294, -101, world.displayName, { ...this.config.textStyle(14, '#ffffff'), align: 'left', wordWrap: { width: 220 } })
+        .text(-340, -132, world.displayName, { ...this.config.textStyle(14, '#ffffff'), align: 'left', wordWrap: { width: 220 } })
         .setOrigin(0, 0.5)
         .setStroke('#17347e', 4)
     );
     this.addAtlasElement(
       this.config.scene.add
-        .text(0, 112, `${world.mapSkin.pathName} - ${earnedInWorld}/${possibleInWorld} milk here`, {
+        .text(0, 113, `${world.mapSkin.pathName} - ${earnedInWorld}/${possibleInWorld} milk here`, {
           ...this.config.textStyle(12, '#17347e'),
           align: 'center',
           wordWrap: { width: 420 }
@@ -216,19 +202,19 @@ export class MilkMapRenderer {
     );
 
     if (previousWorld) {
-      this.createWorldPeek(-366, -4, previousWorld.shortName, 'Prev', previousWorld.palette.background, () =>
+      this.createWorldPeek(-408, -12, previousWorld.shortName, 'Prev', false, () =>
         this.config.selectMapNode(this.getWorldNodeList(previousWorld.id)[0]?.id ?? this.config.getSelectedMapNodeId())
       );
     }
     if (nextWorld) {
-      this.createWorldPeek(-366 * -1, -4, nextWorld.shortName, 'Next', nextWorld.palette.background, () =>
+      this.createWorldPeek(408, -12, nextWorld.shortName, 'Next', true, () =>
         this.config.selectMapNode(this.getWorldNodeList(nextWorld.id)[0]?.id ?? this.config.getSelectedMapNodeId())
       );
     }
 
     this.addAtlasElement(
       this.config.scene.add
-      .text(0, 130, nextWorld ? `Next: ${nextWorld.displayName}` : 'Atlas edge: more worlds can grow beyond this page.', {
+      .text(0, 134, nextWorld ? `Next: ${nextWorld.displayName}` : 'Atlas edge: more worlds can grow beyond this page.', {
           ...this.config.textStyle(11, '#fffad0'),
           align: 'center',
           wordWrap: { width: 420 }
@@ -238,21 +224,33 @@ export class MilkMapRenderer {
     );
   }
 
-  private createWorldPeek(x: number, y: number, label: string, eyebrow: string, backgroundColor: string, onClick: () => void) {
-    const color = Phaser.Display.Color.HexStringToColor(backgroundColor).color;
+  private createWorldPeek(x: number, y: number, label: string, eyebrow: string, pointsRight: boolean, onClick: () => void) {
     const peek = this.config.scene.add.container(x, y);
-    const bg = this.config.scene.add.graphics();
-    bg.fillStyle(color, 0.92);
-    bg.fillRoundedRect(-52, -70, 104, 140, 16);
-    bg.lineStyle(3, 0xffffff, 0.75);
-    bg.strokeRoundedRect(-52, -70, 104, 140, 16);
-    const eyebrowText = this.config.scene.add.text(0, -38, eyebrow, this.config.textStyle(11, '#17347e')).setOrigin(0.5);
+    const arrows = this.config.scene.add.graphics();
+    const direction = pointsRight ? 1 : -1;
+    arrows.fillStyle(0xfff06a, 0.96);
+    for (let i = 0; i < 3; i += 1) {
+      const offset = i * -18 * direction;
+      arrows.fillTriangle(offset - 14 * direction, -18, offset + 18 * direction, 0, offset - 14 * direction, 18);
+    }
+    arrows.lineStyle(3, 0xffffff, 0.72);
+    arrows.strokeTriangle(-14 * direction, -18, 18 * direction, 0, -14 * direction, 18);
+    const eyebrowText = this.config.scene.add.text(0, -54, eyebrow, this.config.textStyle(11, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 3);
     const labelText = this.config.scene.add
-      .text(0, 8, label, { ...this.config.textStyle(13, '#ffffff'), align: 'center', wordWrap: { width: 82 } })
+      .text(0, 48, label, { ...this.config.textStyle(14, '#ffffff'), align: 'center', wordWrap: { width: 100 } })
       .setOrigin(0.5)
       .setStroke('#17347e', 4);
-    const zone = this.config.scene.add.zone(0, 0, 104, 140).setInteractive();
-    peek.add([bg, eyebrowText, labelText, zone]);
+    const zone = this.config.scene.add.zone(0, 0, 112, 150).setInteractive();
+    peek.add([arrows, eyebrowText, labelText, zone]);
+    this.config.scene.tweens.add({
+      targets: arrows,
+      x: pointsRight ? 8 : -8,
+      alpha: 0.68,
+      duration: 620,
+      repeat: -1,
+      yoyo: true,
+      ease: 'Sine.easeInOut'
+    });
     zone.on('pointerup', () => {
       if (this.config.scene.time.now < this.config.getMapInputReadyAt()) return;
       onClick();
@@ -306,14 +304,14 @@ export class MilkMapRenderer {
   private createPreviewCard() {
     const card = this.config.scene.add.graphics();
     card.fillStyle(0x17347e, 0.92);
-    card.fillRoundedRect(-384, 154, 568, 82, 18);
+    card.fillRoundedRect(-382, 154, 580, 82, 18);
     card.lineStyle(4, 0xffffff, 0.82);
-    card.strokeRoundedRect(-384, 154, 568, 82, 18);
-    const title = this.config.scene.add.text(-360, 168, '', this.config.textStyle(21, '#fffad0')).setStroke('#17347e', 5);
+    card.strokeRoundedRect(-382, 154, 580, 82, 18);
+    const title = this.config.scene.add.text(-356, 168, '', this.config.textStyle(21, '#fffad0')).setStroke('#17347e', 5);
     title.setData('role', 'mapCardTitle');
-    const body = this.config.scene.add.text(-360, 197, '', { ...this.config.textStyle(12, '#dff7ff'), wordWrap: { width: 520 }, lineSpacing: 1 }).setStroke('#17347e', 3);
+    const body = this.config.scene.add.text(-356, 197, '', { ...this.config.textStyle(12, '#dff7ff'), wordWrap: { width: 526 }, lineSpacing: 1 }).setStroke('#17347e', 3);
     body.setData('role', 'mapCardBody');
-    const playButton = this.config.createOverlayButton(110, 194, 118, 44, 'Play', 0x53d36d, this.config.startGame);
+    const playButton = this.config.createOverlayButton(126, 194, 118, 44, 'Play', 0x53d36d, this.config.startGame);
     playButton.setData('role', 'mapPlayButton');
     [card, title, body, playButton].forEach((element) => {
       this.addElement(element);
@@ -383,19 +381,19 @@ export class MilkMapRenderer {
   }
 
   private getNodePoint(node: MapNode): MapPoint {
-    if (node.nodeType === 'bonus') return { x: -20, y: -104 };
-    if (node.nodeType === 'gate') return { x: 292, y: 46 };
+    if (node.nodeType === 'bonus') return { x: -18, y: -126 };
+    if (node.nodeType === 'gate') return { x: 336, y: 40 };
     const mainNodes = this.getWorldNodeList(node.worldId).filter((candidate) => candidate.nodeType === 'main');
     const index = Math.max(0, mainNodes.findIndex((candidate) => candidate.id === node.id));
     const path: MapPoint[] = [
-      { x: -260, y: 50 },
-      { x: -214, y: -24 },
-      { x: -128, y: -56 },
-      { x: -54, y: -10 },
-      { x: 24, y: 48 },
-      { x: 108, y: 4 },
-      { x: 178, y: -52 },
-      { x: 246, y: -12 }
+      { x: -312, y: 52 },
+      { x: -260, y: -22 },
+      { x: -160, y: -62 },
+      { x: -64, y: -12 },
+      { x: 34, y: 54 },
+      { x: 138, y: 6 },
+      { x: 226, y: -58 },
+      { x: 296, y: -10 }
     ];
     return path[index] ?? { x: node.x - GAME_WIDTH / 2, y: node.y - GAME_HEIGHT / 2 };
   }
@@ -468,6 +466,47 @@ export class MilkMapRenderer {
       x: inv * inv * start.x + 2 * inv * t * control.x + t * t * end.x,
       y: inv * inv * start.y + 2 * inv * t * control.y + t * t * end.y
     };
+  }
+
+  private drawMilkBottleCharacter(graphics: Phaser.GameObjects.Graphics, totalMilk: number, mapMilkGoal: number) {
+    const x = 302;
+    const y = -254;
+    const fillHeight = Math.round(Phaser.Math.Clamp(totalMilk / Math.max(1, mapMilkGoal), 0, 1) * 42);
+    graphics.clear();
+    graphics.fillStyle(0xff7aa8, 1);
+    graphics.fillRect(x + 32, y - 2, 28, 8);
+    graphics.fillStyle(0x17347e, 1);
+    graphics.fillRect(x + 26, y + 6, 40, 8);
+    graphics.fillRect(x + 18, y + 14, 56, 56);
+
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillRect(x + 34, y + 2, 24, 8);
+    graphics.fillRect(x + 28, y + 10, 36, 8);
+    graphics.fillRect(x + 22, y + 18, 48, 48);
+
+    graphics.fillStyle(0xeef9ff, 1);
+    graphics.fillRect(x + 28, y + 24, 36, 36);
+    graphics.fillStyle(0xbfefff, 1);
+    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, fillHeight);
+    graphics.fillStyle(0x63c6ff, 1);
+    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, Math.min(4, fillHeight));
+
+    graphics.fillStyle(0x17347e, 1);
+    graphics.fillRect(x + 35, y + 36, 6, 12);
+    graphics.fillRect(x + 51, y + 36, 6, 12);
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillRect(x + 37, y + 38, 2, 3);
+    graphics.fillRect(x + 53, y + 38, 2, 3);
+    graphics.fillStyle(0xff9bc4, 1);
+    graphics.fillRect(x + 28, y + 49, 8, 5);
+    graphics.fillRect(x + 56, y + 49, 8, 5);
+    graphics.fillStyle(0x17347e, 1);
+    graphics.fillRect(x + 43, y + 53, 6, 3);
+
+    graphics.lineStyle(3, 0xffffff, 1);
+    graphics.strokeRect(x + 34, y + 2, 24, 8);
+    graphics.strokeRect(x + 28, y + 10, 36, 8);
+    graphics.strokeRect(x + 22, y + 18, 48, 48);
   }
 
   private createScenicProps(worldId: string) {

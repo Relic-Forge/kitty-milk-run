@@ -17,6 +17,10 @@ export class GameStateService {
     GameStateService.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? (storedLevel as LevelId) : 'kitchen';
     const storedMode = StorageService.getOptionalString(STORAGE_KEYS.mode) as RunMode | null;
     GameStateService.runMode = storedMode === 'farm-for-yarn' ? 'farm-for-yarn' : 'milk-run';
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      const testMode = new URLSearchParams(window.location.search).get('testMode');
+      if (testMode === 'milk-run' || testMode === 'farm-for-yarn') GameStateService.runMode = testMode;
+    }
   }
 
   static save() {

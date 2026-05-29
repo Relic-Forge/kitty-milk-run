@@ -1,4 +1,4 @@
-export type ThemeKey = 'kitchen' | 'living_room' | 'backyard';
+export type ThemeKey = 'kitchen' | 'living_room' | 'backyard' | 'magical-kingdom';
 
 export type MechanicFlags = {
   jumpEnabled: boolean;
@@ -353,6 +353,35 @@ export const WORLDS: WorldConfig[] = [
     },
     difficultyProfile: { speedMultiplier: 1.26, hazardDensity: 'high', visualComplexity: 'medium' },
     mechanicFlags: { ...DEFAULT_FLAGS, movingHazardsEnabled: true, chaserEnabled: true }
+  },
+  {
+    id: 'world_09_magical_kingdom',
+    displayName: 'Magical Milk Kingdom',
+    shortName: 'Milk Kingdom',
+    themeKey: 'magical-kingdom',
+    order: 9,
+    ring: 4,
+    atlasLabel: 'Ring 4 - Dream Routes',
+    locationFantasy: 'Milk-glass towers, star lanterns, crystal mushrooms, and royal moon-milk deliveries.',
+    previewHint: 'The neighborhood path opens into a storybook kingdom made for brave little paws.',
+    unlockMilkRequirement: 112,
+    palette: { background: '#7d8fe8', band: 0xf8d7ff, path: 0xfff7ef, pathEdge: 0x6e58b8, node: 0xffffff, accent: 0xffd166, hudTint: 0x56479a },
+    mapSkin: { pathName: 'moon-milk cobblestones', gateName: 'Star Lantern Gate', bannerName: 'Royal milk banner' },
+    gameplaySkin: {
+      collectibleSkin: 'royal_moon_milk',
+      hazardSet: 'jelly_crowns_and_sparkles',
+      obstacleSet: 'wobble_jelly_royal_props',
+      finishAsset: 'finish_royal_milk_bottle'
+    },
+    audioSkin: {
+      mapMusic: 'music_map_magical_kingdom',
+      gameplayMusic: 'music_run_magical_kingdom',
+      ambientLoop: 'amb_star_lantern_chime',
+      uiSelect: 'sfx_paw_tap_soft',
+      gateUnlock: 'sfx_star_chime'
+    },
+    difficultyProfile: { speedMultiplier: 1.3, hazardDensity: 'high', visualComplexity: 'high' },
+    mechanicFlags: { ...DEFAULT_FLAGS, movingHazardsEnabled: true, timedSwitchesEnabled: true }
   }
 ];
 
@@ -446,6 +475,16 @@ const LEVEL_NAMES = {
     ['Squirrel Suspicion', 'Nobody is accusing anyone yet.'],
     ['Fountain Flicker', 'A brighter, busier route.'],
     ['Alley Council', 'The neighborhood officially notices the cat.']
+  ],
+  world_09_magical_kingdom: [
+    ['Lantern Landing', 'First steps under the royal star lanterns.'],
+    ['Moon-Milk Road', 'Follow the bright cobblestones without drifting.'],
+    ['Crystal Capers', 'Sparkly mushrooms mark the safer route.'],
+    ['Jelly Crown Jive', 'The royal dessert wobble begins.'],
+    ['Cloud Bridge Scoot', 'A dreamy path through floating cream clouds.'],
+    ['Tower Twinkle', 'Milk-glass towers glitter at the lane edges.'],
+    ['Royal Bottle Rush', 'The finish bottle is watching with tiny cheeks.'],
+    ['Kingdom Milk Run', 'A full-speed dash through the storybook gates.']
   ]
 } as const;
 
@@ -458,7 +497,8 @@ const BONUS_NAMES = {
   world_05_backyard: ['Catnip Fever Dream', 'A sparkly detour through the fence club.'],
   world_06_porch: ['Package Kingdom', 'A cardboard throne appears.'],
   world_07_sidewalk: ['Leaf Tornado', 'A crunchy detour with wind drama.'],
-  world_08_neighborhood: ['Alley Whisper', 'A hidden route for serious little cats.']
+  world_08_neighborhood: ['Alley Whisper', 'A hidden route for serious little cats.'],
+  world_09_magical_kingdom: ['Crown Jelly Waltz', 'A hidden royal detour with wobbling dessert drama.']
 } as const;
 
 export const MAP_NODES: MapNode[] = WORLDS.flatMap((world, worldIndex) => {

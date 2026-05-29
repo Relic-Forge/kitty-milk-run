@@ -1,0 +1,80 @@
+{
+  "project": "kitty-milk-run",
+  "created": "2026-05-29",
+  "style_contract": "docs/art/magical-kingdom-asset-style-contract.md",
+  "tool": "built-in image_gen with local chroma-key removal for sprite alpha",
+  "assets": [
+    {
+      "id": "magical-milk-kingdom-backdrop",
+      "family": "magical-kingdom",
+      "type": "gameplay-backdrop",
+      "prompt": "Highest quality pixel art rendition of a new game world called Magical Milk Kingdom for a kid-friendly cat running game. Whimsical pastel fantasy kingdom made of milk-glass towers, cereal-stone paths, floating cream clouds, glowing star lanterns, tiny crystal mushrooms, and a warm safe racetrack feeling. Premium crisp pixel art, wide 16:9 backdrop, no characters, no UI, no text, no logo, no watermark.",
+      "negative_prompt": "photorealism, painterly blur, vector-flat style, excessive noise, text, logo, watermark",
+      "size": "960x540 runtime, 1672x941 source",
+      "source": "public/assets/generated/magical-kingdom/magical-milk-kingdom-backdrop.png",
+      "output": "public/assets/magical-kingdom/magical-milk-kingdom-backdrop.png",
+      "status": "accepted",
+      "checks": ["exists", "dimensions", "style", "runtime-sized"]
+    },
+    {
+      "id": "magic-kingdom-star-lantern",
+      "family": "magical-kingdom",
+      "type": "decor-sprite",
+      "prompt": "Highest quality pixel art star lantern for the Magical Milk Kingdom world, centered on flat #00ff00 chroma-key background. Cute hanging star lantern made of golden pixels, milk-glass center, blue-purple outline, small handle loop, contained magical glow, no text, no watermark.",
+      "negative_prompt": "photorealism, cast shadow, contact shadow, reflection, text, logo, watermark, green in subject",
+      "size": "84x108 runtime, 1254x1254 source",
+      "source": "public/assets/generated/magical-kingdom/star-lantern.png",
+      "output": "public/assets/magical-kingdom/star-lantern.png",
+      "status": "accepted",
+      "checks": ["exists", "dimensions", "alpha", "transparent-corners", "style"]
+    },
+    {
+      "id": "magic-kingdom-milk-tower",
+      "family": "magical-kingdom",
+      "type": "decor-sprite",
+      "prompt": "Highest quality pixel art milk-glass kingdom tower for the Magical Milk Kingdom world, centered on flat #00ff00 chroma-key background. Cute pastel castle tower shaped like a milk bottle, frosting roof, tiny flag, rounded windows, deep blue-purple outline, no text, no watermark.",
+      "negative_prompt": "photorealism, cast shadow, contact shadow, reflection, text, logo, watermark, green in subject",
+      "size": "144x232 runtime, 1254x1254 source",
+      "source": "public/assets/generated/magical-kingdom/milk-tower.png",
+      "output": "public/assets/magical-kingdom/milk-tower.png",
+      "status": "accepted",
+      "checks": ["exists", "dimensions", "alpha", "transparent-corners", "style"]
+    },
+    {
+      "id": "magic-kingdom-royal-milk",
+      "family": "magical-kingdom",
+      "type": "finish-prop",
+      "prompt": "Highest quality pixel art royal moon milk bottle for the Magical Milk Kingdom world, centered on flat #00ff00 chroma-key background. Cute collectible milk bottle with tiny gold crown cap, crescent moon label, milk-white glass, blue shine, pink cheeks, and sparkly pixels.",
+      "negative_prompt": "photorealism, cast shadow, contact shadow, reflection, text, logo, watermark, green in subject",
+      "size": "116x150 runtime, 1254x1254 source",
+      "source": "public/assets/generated/magical-kingdom/royal-milk-bottle.png",
+      "output": "public/assets/magical-kingdom/royal-milk-bottle.png",
+      "status": "accepted",
+      "checks": ["exists", "dimensions", "alpha", "transparent-corners", "style"]
+    },
+    {
+      "id": "magic-kingdom-jelly-crown",
+      "family": "magical-kingdom",
+      "type": "obstacle-sprite",
+      "prompt": "Highest quality pixel art wobble jelly crown obstacle for the Magical Milk Kingdom world, centered on flat #00ff00 chroma-key background. Silly non-scary wobbling jelly dessert obstacle shaped like a tiny crown, translucent strawberry-pink jelly, blue-purple outline, tiny sparkle pixels, friendly expression.",
+      "negative_prompt": "scary, photorealism, cast shadow, contact shadow, reflection, text, logo, watermark, green in subject",
+      "size": "112x84 runtime, 1448x1086 source",
+      "source": "public/assets/generated/magical-kingdom/wobble-jelly-crown.png",
+      "output": "public/assets/magical-kingdom/wobble-jelly-crown.png",
+      "status": "accepted",
+      "checks": ["exists", "dimensions", "alpha", "transparent-corners", "style"]
+    },
+    {
+      "id": "magic-kingdom-crystal-mushroom",
+      "family": "magical-kingdom",
+      "type": "decor-sprite",
+      "prompt": "Highest quality pixel art crystal mushroom cluster for the Magical Milk Kingdom world, centered on flat #00ff00 chroma-key background. Cute cluster of magical mushrooms with crystal caps, milk-white stems, lavender and cyan facets, tiny star sparkles, deep blue-purple outline.",
+      "negative_prompt": "photorealism, cast shadow, contact shadow, reflection, text, logo, watermark, green in subject",
+      "size": "82x76 runtime, 1315x1197 source",
+      "source": "public/assets/generated/magical-kingdom/crystal-mushroom.png",
+      "output": "public/assets/magical-kingdom/crystal-mushroom.png",
+      "status": "accepted",
+      "checks": ["exists", "dimensions", "alpha", "transparent-corners", "style"]
+    }
+  ]
+}

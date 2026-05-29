@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from '../data/storageKeys';
-import { MAP_NODES, getMapNodeById, getWorldForNode, type MapNode } from '../worldMap';
+import { MAP_NODES, WORLDS, getMapNodeById, getWorldForNode, type MapNode } from '../worldMap';
 import { StorageService } from './StorageService';
 
 type ProgressRecord = Record<string, number>;
@@ -11,8 +11,10 @@ function clampBottleRating(value: number) {
 export class ProgressService {
   private static progress: ProgressRecord = {};
   private static selectedNodeId = MAP_NODES[0].id;
+  private static devTestNodeId: string | undefined;
 
   static load() {
+    ProgressService.devTestNodeId = ProgressService.getDevTestNodeId();
     const storedProgress = StorageService.getJson<ProgressRecord>(STORAGE_KEYS.mapProgress, {});
     ProgressService.progress = Object.fromEntries(
       Object.entries(storedProgress)
@@ -24,6 +26,7 @@ export class ProgressService {
     ProgressService.selectedNodeId = MAP_NODES.some((node) => node.id === storedNodeId)
       ? storedNodeId!
       : ProgressService.getNewestUnlockedNode().id;
+    if (ProgressService.devTestNodeId) ProgressService.selectedNodeId = ProgressService.devTestNodeId;
   }
 
   static save() {
@@ -59,6 +62,7 @@ export class ProgressService {
   }
 
   static isNodeUnlocked(node: MapNode): boolean {
+    if (node.id === ProgressService.devTestNodeId) return true;
     if (ProgressService.getTotalMilk() < node.unlock.requiredMilkBottles) return false;
     if (!node.unlock.previousNodeId) return true;
     const previousNode = getMapNodeById(node.unlock.previousNodeId);
@@ -68,6 +72,25 @@ export class ProgressService {
 
   static isNodePlayable(node: MapNode) {
     return node.nodeType !== 'gate' && ProgressService.isNodeUnlocked(node);
+  }
+
+  private static getDevTestNodeId() {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return undefined;
+    const params = new URLSearchParams(window.location.search);
+    const explicitNodeId = params.get('testNode');
+    const explicitNode = explicitNodeId ? MAP_NODES.find((node) => node.id === explicitNodeId && node.nodeType !== 'gate') : undefined;
+    if (explicitNode) return explicitNode.id;
+
+    const testWorld = params.get('testWorld');
+    if (!testWorld) return undefined;
+    const normalizedWorld = testWorld.trim().toLowerCase();
+    const world = WORLDS.find(
+      (candidate) =>
+        candidate.id.toLowerCase() === normalizedWorld ||
+        candidate.themeKey.toLowerCase() === normalizedWorld ||
+        candidate.shortName.toLowerCase().replace(/\s+/g, '-') === normalizedWorld
+    );
+    return MAP_NODES.find((node) => node.worldId === world?.id && node.nodeType === 'main')?.id;
   }
 
   static isGateOpen(gateId: string) {

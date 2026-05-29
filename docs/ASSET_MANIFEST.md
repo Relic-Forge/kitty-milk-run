@@ -27,6 +27,13 @@ All runtime art is generated local SVG under `public/assets/` and loaded by `src
 - `finish-flag.svg` - finish line marker.
 - `sparkle.svg` - particle effect.
 - `flower.svg`, `grass-tuft.svg`, `paw-print.svg` - scrolling grassland decoration.
+- `magical-kingdom/*.png` - generated high-quality pixel art runtime assets for the Magical Milk Kingdom world: gameplay backdrop, milk-glass tower, star lantern, royal moon milk bottle, wobble jelly crown obstacle, and crystal mushroom cluster.
+- `generated/magical-kingdom/*.png` - full-resolution generated source assets used to create the runtime Magical Milk Kingdom PNGs.
+
+## Generated Asset Pipelines
+
+- `docs/art/magical-kingdom-asset-style-contract.md` - style contract for Magical Milk Kingdom.
+- `docs/art/magical-kingdom-asset-generation-manifest.json` - prompt matrix, source paths, runtime outputs, and QA checks for the generated Magical Milk Kingdom asset batch.
 
 ## Runtime Audio Assets
 
