@@ -492,19 +492,6 @@ export class RunScene extends BaseScene {
     this.overlay.add(heroCat.container);
     this.launchUiElements.push(heroCat.container);
 
-    const milkBottleMeter = this.add.graphics();
-    milkBottleMeter.setData('role', 'launchMilkBottle');
-    this.overlay.add(milkBottleMeter);
-    this.launchUiElements.push(milkBottleMeter);
-
-    const milkText = this.add
-      .text(386, -146, '', this.textStyle(12, '#fffad0'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    milkText.setData('role', 'launchMilkTotal');
-    this.overlay.add(milkText);
-    this.launchUiElements.push(milkText);
-
     const selectedPanel = this.add.graphics();
     selectedPanel.fillStyle(0x17347e, 0.88);
     selectedPanel.fillRoundedRect(-300, -8, 600, 118, 18);
@@ -602,15 +589,10 @@ export class RunScene extends BaseScene {
     const selectedNode = this.getCurrentRunNode();
     const world = getWorldForNode(selectedNode);
     const bottles = this.getBottlesForNode(selectedNode.id);
-    const totalMilk = this.getTotalMilk();
     for (const element of this.launchUiElements) {
       const role = element.getData('role') as string | undefined;
       if (role === 'launchSelectedCat') {
         this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
-      } else if (role === 'launchMilkBottle') {
-        this.drawLaunchMilkBottle(element as Phaser.GameObjects.Graphics, totalMilk);
-      } else if (role === 'launchMilkTotal') {
-        (element as Phaser.GameObjects.Text).setText(`${totalMilk}/${this.getMapMilkGoal()}`);
       } else if (role === 'launchSelectedTitle') {
         (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
       } else if (role === 'launchSelectedBody') {
@@ -692,47 +674,6 @@ export class RunScene extends BaseScene {
     paw.fillRect(-10, -22, 28, 14);
     charm.add([shadow, fish, paw]);
     return charm;
-  }
-
-  private drawLaunchMilkBottle(graphics: Phaser.GameObjects.Graphics, totalMilk: number) {
-    const x = 340;
-    const y = -231;
-    const fillHeight = Math.round(Phaser.Math.Clamp(totalMilk / 81, 0, 1) * 42);
-    graphics.clear();
-    graphics.fillStyle(0xff7aa8, 1);
-    graphics.fillRect(x + 32, y - 2, 28, 8);
-    graphics.fillStyle(0x17347e, 1);
-    graphics.fillRect(x + 26, y + 6, 40, 8);
-    graphics.fillRect(x + 18, y + 14, 56, 56);
-
-    graphics.fillStyle(0xffffff, 1);
-    graphics.fillRect(x + 34, y + 2, 24, 8);
-    graphics.fillRect(x + 28, y + 10, 36, 8);
-    graphics.fillRect(x + 22, y + 18, 48, 48);
-
-    graphics.fillStyle(0xeef9ff, 1);
-    graphics.fillRect(x + 28, y + 24, 36, 36);
-    graphics.fillStyle(0xbfefff, 1);
-    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, fillHeight);
-    graphics.fillStyle(0x63c6ff, 1);
-    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, Math.min(4, fillHeight));
-
-    graphics.fillStyle(0x17347e, 1);
-    graphics.fillRect(x + 35, y + 36, 6, 12);
-    graphics.fillRect(x + 51, y + 36, 6, 12);
-    graphics.fillStyle(0xffffff, 1);
-    graphics.fillRect(x + 37, y + 38, 2, 3);
-    graphics.fillRect(x + 53, y + 38, 2, 3);
-    graphics.fillStyle(0xff9bc4, 1);
-    graphics.fillRect(x + 28, y + 49, 8, 5);
-    graphics.fillRect(x + 56, y + 49, 8, 5);
-    graphics.fillStyle(0x17347e, 1);
-    graphics.fillRect(x + 43, y + 53, 6, 3);
-
-    graphics.lineStyle(3, 0xffffff, 1);
-    graphics.strokeRect(x + 34, y + 2, 24, 8);
-    graphics.strokeRect(x + 28, y + 10, 36, 8);
-    graphics.strokeRect(x + 22, y + 18, 48, 48);
   }
 
   private getMapCardBody(node: MapNode) {

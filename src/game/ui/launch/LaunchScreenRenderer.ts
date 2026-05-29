@@ -29,8 +29,6 @@ export class LaunchScreenRenderer {
   private titleText?: Phaser.GameObjects.Text;
   private selectedTitle?: Phaser.GameObjects.Text;
   private bodyText?: Phaser.GameObjects.Text;
-  private milkBottleCharacter?: Phaser.GameObjects.Graphics;
-  private milkTotalText?: Phaser.GameObjects.Text;
 
   constructor(
     private readonly config: LaunchScreenRendererConfig,
@@ -52,10 +50,6 @@ export class LaunchScreenRenderer {
       .setOrigin(0.5)
       .setStroke('#17347e', 8);
     frame.container.add(title);
-
-    this.milkBottleCharacter = scene.add.graphics();
-    this.milkTotalText = scene.add.text(386, -146, '', textStyle(12, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 4);
-    frame.container.add([this.milkBottleCharacter, this.milkTotalText]);
 
     const hero = scene.add.graphics();
     hero.fillStyle(0xffefba, 0.96);
@@ -109,54 +103,11 @@ export class LaunchScreenRenderer {
   }
 
   update(viewModel: LaunchViewModel) {
-    this.milkTotalText?.setText(`${viewModel.totalMilk}/${viewModel.mapMilkGoal}`);
-    if (this.milkBottleCharacter) this.drawMilkBottleCharacter(this.milkBottleCharacter, viewModel.totalMilk, viewModel.mapMilkGoal);
     this.speedText?.setText(`${viewModel.speedLabel} ▼`);
     this.drawSpeedButton(viewModel);
     this.titleText?.setText('CURRENT RUN');
     this.selectedTitle?.setText(viewModel.currentNode.displayName);
     this.bodyText?.setText(`${viewModel.world.displayName} - Level ${viewModel.currentNode.nodeType === 'bonus' ? 'Bonus' : viewModel.currentNode.id.slice(-2)}\nBottles: ${viewModel.currentBottleRating}`);
-  }
-
-  private drawMilkBottleCharacter(graphics: Phaser.GameObjects.Graphics, totalMilk: number, mapMilkGoal: number) {
-    const x = 340;
-    const y = -231;
-    const fillHeight = Math.round(Phaser.Math.Clamp(totalMilk / Math.max(1, mapMilkGoal), 0, 1) * 42);
-    graphics.clear();
-    graphics.fillStyle(0xff7aa8, 1);
-    graphics.fillRect(x + 32, y - 2, 28, 8);
-    graphics.fillStyle(0x17347e, 1);
-    graphics.fillRect(x + 26, y + 6, 40, 8);
-    graphics.fillRect(x + 18, y + 14, 56, 56);
-
-    graphics.fillStyle(0xffffff, 1);
-    graphics.fillRect(x + 34, y + 2, 24, 8);
-    graphics.fillRect(x + 28, y + 10, 36, 8);
-    graphics.fillRect(x + 22, y + 18, 48, 48);
-
-    graphics.fillStyle(0xeef9ff, 1);
-    graphics.fillRect(x + 28, y + 24, 36, 36);
-    graphics.fillStyle(0xbfefff, 1);
-    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, fillHeight);
-    graphics.fillStyle(0x63c6ff, 1);
-    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, Math.min(4, fillHeight));
-
-    graphics.fillStyle(0x17347e, 1);
-    graphics.fillRect(x + 35, y + 36, 6, 12);
-    graphics.fillRect(x + 51, y + 36, 6, 12);
-    graphics.fillStyle(0xffffff, 1);
-    graphics.fillRect(x + 37, y + 38, 2, 3);
-    graphics.fillRect(x + 53, y + 38, 2, 3);
-    graphics.fillStyle(0xff9bc4, 1);
-    graphics.fillRect(x + 28, y + 49, 8, 5);
-    graphics.fillRect(x + 56, y + 49, 8, 5);
-    graphics.fillStyle(0x17347e, 1);
-    graphics.fillRect(x + 43, y + 53, 6, 3);
-
-    graphics.lineStyle(3, 0xffffff, 1);
-    graphics.strokeRect(x + 34, y + 2, 24, 8);
-    graphics.strokeRect(x + 28, y + 10, 36, 8);
-    graphics.strokeRect(x + 22, y + 18, 48, 48);
   }
 
   private createPixelMilkBowlCharm(scene: Phaser.Scene, x: number, y: number) {

@@ -64,6 +64,9 @@ export class MilkMapRenderer {
   private mapCatAvatarNodeId?: string;
   private milkBottleCharacter?: Phaser.GameObjects.Graphics;
   private milkTotalText?: Phaser.GameObjects.Text;
+  private worldMilkBadge?: Phaser.GameObjects.Graphics;
+  private worldMilkText?: Phaser.GameObjects.Text;
+  private bestBottleIcons?: Phaser.GameObjects.Graphics;
   private pendingCelebration?: MapUnlockCelebration;
 
   constructor(private readonly config: MilkMapRendererConfig) {}
@@ -77,9 +80,13 @@ export class MilkMapRenderer {
 
     this.createAtlasPage();
     this.milkBottleCharacter = this.config.scene.add.graphics();
-    this.milkTotalText = this.config.scene.add.text(386, -146, '', this.config.textStyle(12, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 4);
+    this.milkTotalText = this.config.scene.add.text(368, -193, '', this.config.textStyle(12, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 4).setResolution(2);
+    this.worldMilkBadge = this.config.scene.add.graphics();
+    this.worldMilkText = this.config.scene.add.text(-304, -119, '', this.config.textStyle(12, '#fffad0')).setOrigin(0, 0.5).setStroke('#17347e', 4).setResolution(2);
     this.addElement(this.milkBottleCharacter);
     this.addElement(this.milkTotalText);
+    this.addElement(this.worldMilkBadge);
+    this.addElement(this.worldMilkText);
     this.mapCatAvatar = this.config.scene.add.image(0, 0, cosmetic.run1);
     this.addElement(this.mapCatAvatar);
     this.createPreviewCard();
@@ -109,7 +116,10 @@ export class MilkMapRenderer {
     const selectedNode = this.config.getSelectedMapNode();
     const totalMilk = this.config.getTotalMilk();
     this.milkTotalText?.setText(`${totalMilk}/${this.config.getMapMilkGoal()}`);
-    if (this.milkBottleCharacter) this.drawMilkBottleCharacter(this.milkBottleCharacter, totalMilk, this.config.getMapMilkGoal());
+    if (this.milkBottleCharacter) this.drawOverallMilkBottleCharacter(this.milkBottleCharacter, totalMilk, this.config.getMapMilkGoal());
+    this.updateWorldMilkBadge();
+    this.drawBestBottleIcons(selectedNode);
+    this.bringPersistentMapHudToTop();
     for (const element of this.elements) {
       const role = element.getData('role') as string | undefined;
       if (role === 'mapCardTitle') {
@@ -126,7 +136,8 @@ export class MilkMapRenderer {
       const cosmetic = this.config.getSelectedCosmetic();
       const avatarNode = this.config.getCurrentMapCatNode();
       const avatarIsOnVisibleWorld = avatarNode.worldId === this.getActiveWorld().id;
-      const target = this.getNodePoint(avatarNode);
+      const visibleAvatarNode = avatarIsOnVisibleWorld ? avatarNode : selectedNode;
+      const target = this.getNodePoint(visibleAvatarNode);
       const targetY = target.y;
       const avatarScale = this.getCatIconScale(cosmetic, 1.12);
       this.mapCatAvatar
@@ -134,11 +145,15 @@ export class MilkMapRenderer {
         .setScale(avatarScale)
         .clearTint()
         .setAlpha(1)
-        .setVisible(this.config.getOverlayMode() === 'map' && avatarIsOnVisibleWorld && this.config.isMapNodePlayable(avatarNode));
+        .setVisible(this.config.getOverlayMode() === 'map');
       const celebration = this.pendingCelebration;
       this.pendingCelebration = undefined;
       if (!avatarIsOnVisibleWorld) {
-        this.config.scene.tweens.killTweensOf(this.mapCatAvatar);
+        if (!this.mapCatAvatarNodeId) {
+          this.mapCatAvatar.setPosition(target.x, targetY).setAngle(0);
+        } else if (this.mapCatAvatarNodeId !== visibleAvatarNode.id) {
+          this.animateMapCatTo(visibleAvatarNode, target, avatarScale, cosmetic, false);
+        }
       } else if (celebration?.toNodeId === avatarNode.id) {
         const fromNode = getMapNodeById(celebration.fromNodeId);
         const start = fromNode ? this.getNodePoint(fromNode) : target;
@@ -149,7 +164,7 @@ export class MilkMapRenderer {
       } else if (this.mapCatAvatarNodeId !== avatarNode.id) {
         this.animateMapCatTo(avatarNode, target, avatarScale, cosmetic, false);
       }
-      this.mapCatAvatarNodeId = avatarNode.id;
+      this.mapCatAvatarNodeId = visibleAvatarNode.id;
     }
 
     for (const button of this.mapNodeButtons) {
@@ -228,6 +243,12 @@ export class MilkMapRenderer {
     this.addElement(element);
     this.mapAtlasElements.push(element);
     return element;
+  }
+
+  private bringPersistentMapHudToTop() {
+    [this.milkBottleCharacter, this.milkTotalText, this.worldMilkBadge, this.worldMilkText, this.mapCatAvatar].forEach((element) => {
+      if (element) this.config.overlay.bringToTop(element);
+    });
   }
 
   private getActiveWorld() {
@@ -379,11 +400,13 @@ export class MilkMapRenderer {
     card.strokeRoundedRect(-382, 144, 580, 102, 18);
     const title = this.config.scene.add.text(-356, 156, '', this.config.textStyle(20, '#fffad0')).setStroke('#17347e', 5).setResolution(2);
     title.setData('role', 'mapCardTitle');
-    const body = this.config.scene.add.text(-356, 184, '', { ...this.config.textStyle(11, '#dff7ff'), wordWrap: { width: 450 }, lineSpacing: 0 }).setStroke('#17347e', 3).setResolution(2);
+    const bestLabel = this.config.scene.add.text(-356, 188, 'Best:', this.config.textStyle(12, '#dff7ff')).setStroke('#17347e', 3).setResolution(2);
+    this.bestBottleIcons = this.config.scene.add.graphics();
+    const body = this.config.scene.add.text(-356, 212, '', { ...this.config.textStyle(11, '#dff7ff'), wordWrap: { width: 450 }, lineSpacing: 0 }).setStroke('#17347e', 3).setResolution(2);
     body.setData('role', 'mapCardBody');
     const playButton = this.config.createOverlayButton(126, 195, 118, 44, 'Play', 0x53d36d, this.config.startGame);
     playButton.setData('role', 'mapPlayButton');
-    [card, title, body, playButton].forEach((element) => {
+    [card, title, bestLabel, this.bestBottleIcons, body, playButton].forEach((element) => {
       this.addElement(element);
       this.mapCardElements.push(element);
     });
@@ -459,17 +482,25 @@ export class MilkMapRenderer {
   }
 
   private getUnifiedMapCardBody(node: MapNode) {
-    const world = getWorldForNode(node);
-    const activeNodes = this.getWorldNodeList(world.id);
-    const earnedInWorld = activeNodes.reduce((total, candidate) => total + this.config.getBottlesForNode(candidate.id), 0);
-    const possibleInWorld = activeNodes.filter((candidate) => candidate.nodeType !== 'gate').length * 3;
+    return node.flavor;
+  }
+
+  private drawBestBottleIcons(node: MapNode) {
+    if (!this.bestBottleIcons) return;
     const bottles = this.config.getBottlesForNode(node.id);
-    const bestText = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
-    return [
-      `${world.displayName} | ${world.mapSkin.pathName} | ${earnedInWorld}/${possibleInWorld} milk here`,
-      `Best: ${bestText}`,
-      node.flavor
-    ].join('\n');
+    this.bestBottleIcons.clear();
+    for (let i = 0; i < 3; i += 1) {
+      this.drawMiniMilkBottle(this.bestBottleIcons, -304 + i * 21, 193, i < bottles ? 1 : 0.28, i < bottles);
+    }
+  }
+
+  private updateWorldMilkBadge() {
+    if (!this.worldMilkBadge || !this.worldMilkText) return;
+    const activeNodes = this.getWorldNodeList(this.getActiveWorld().id).filter((node) => node.nodeType !== 'gate');
+    const earnedInWorld = activeNodes.reduce((total, node) => total + this.config.getBottlesForNode(node.id), 0);
+    const possibleInWorld = activeNodes.length * 3;
+    this.worldMilkText.setText(`${earnedInWorld}/${possibleInWorld}`);
+    this.drawWorldMilkBadge(this.worldMilkBadge);
   }
 
   private getNodeLabel(node: MapNode) {
@@ -645,9 +676,26 @@ export class MilkMapRenderer {
     };
   }
 
-  private drawMilkBottleCharacter(graphics: Phaser.GameObjects.Graphics, totalMilk: number, mapMilkGoal: number) {
-    const x = 340;
-    const y = -231;
+  private drawWorldMilkBadge(graphics: Phaser.GameObjects.Graphics) {
+    const x = -344;
+    const y = -128;
+    graphics.clear();
+    graphics.fillStyle(0x17347e, 0.18);
+    graphics.fillRoundedRect(x - 2, y + 3, 82, 24, 12);
+    graphics.fillStyle(0xfff06a, 0.96);
+    graphics.fillRoundedRect(x - 6, y - 1, 82, 24, 12);
+    graphics.lineStyle(3, 0xffffff, 0.78);
+    graphics.strokeRoundedRect(x - 6, y - 1, 82, 24, 12);
+    graphics.fillStyle(0xff7aa8, 0.95);
+    graphics.fillCircle(x + 5, y - 4, 3);
+    graphics.fillStyle(0xbfefff, 0.92);
+    graphics.fillCircle(x + 68, y + 6, 3);
+    this.drawMiniMilkBottle(graphics, x + 13, y + 11, 1, true);
+  }
+
+  private drawOverallMilkBottleCharacter(graphics: Phaser.GameObjects.Graphics, totalMilk: number, mapMilkGoal: number) {
+    const x = 322;
+    const y = -278;
     const fillHeight = Math.round(Phaser.Math.Clamp(totalMilk / Math.max(1, mapMilkGoal), 0, 1) * 42);
     graphics.clear();
     graphics.fillStyle(0xff7aa8, 1);
@@ -684,6 +732,38 @@ export class MilkMapRenderer {
     graphics.strokeRect(x + 34, y + 2, 24, 8);
     graphics.strokeRect(x + 28, y + 10, 36, 8);
     graphics.strokeRect(x + 22, y + 18, 48, 48);
+  }
+
+  private drawMiniMilkBottle(graphics: Phaser.GameObjects.Graphics, x: number, y: number, alpha: number, filled: boolean, fillPercent = 1) {
+    const fillHeight = Math.round(Phaser.Math.Clamp(fillPercent, 0, 1) * 13);
+    graphics.fillStyle(0xff7aa8, 1);
+    graphics.fillStyle(0x17347e, alpha);
+    graphics.fillRect(x - 5, y - 11, 10, 3);
+    graphics.fillRect(x - 7, y - 8, 14, 4);
+    graphics.fillRect(x - 9, y - 4, 18, 18);
+
+    graphics.fillStyle(0xffffff, alpha);
+    graphics.fillRect(x - 3, y - 13, 6, 3);
+    graphics.fillRect(x - 5, y - 10, 10, 4);
+    graphics.fillRect(x - 7, y - 6, 14, 18);
+
+    graphics.fillStyle(0xeef9ff, alpha);
+    graphics.fillRect(x - 5, y - 2, 10, 12);
+    if (filled) {
+      graphics.fillStyle(0xbfefff, alpha);
+      graphics.fillRect(x - 5, y + 10 - fillHeight, 10, fillHeight);
+      graphics.fillStyle(0x63c6ff, alpha);
+      graphics.fillRect(x - 5, y + 10 - fillHeight, 10, Math.min(2, fillHeight));
+    }
+
+    graphics.fillStyle(0x17347e, alpha);
+    graphics.fillRect(x - 3, y + 1, 2, 4);
+    graphics.fillRect(x + 2, y + 1, 2, 4);
+    graphics.fillStyle(0xff9bc4, alpha);
+    graphics.fillRect(x - 5, y + 7, 3, 2);
+    graphics.fillRect(x + 3, y + 7, 3, 2);
+    graphics.fillStyle(0x17347e, alpha);
+    graphics.fillRect(x - 1, y + 9, 3, 1);
   }
 
   private createScenicProps(worldId: string) {
