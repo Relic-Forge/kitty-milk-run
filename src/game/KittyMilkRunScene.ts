@@ -736,21 +736,35 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private createLaunchScreen() {
     this.launchUiElements = [];
 
-    const heroCat = this.createEyeTrackedCat(-250, -36, this.getSelectedCosmetic().run1, this.getSelectedCosmetic().style === 'nyan' ? 1.25 : 1.08, this.getSelectedCosmetic().style === 'nyan');
+    const scenePanel = this.add.graphics();
+    scenePanel.fillStyle(0xffefba, 0.96);
+    scenePanel.fillRoundedRect(-300, -150, 600, 128, 20);
+    scenePanel.lineStyle(4, 0xffffff, 0.84);
+    scenePanel.strokeRoundedRect(-300, -150, 600, 128, 20);
+    scenePanel.fillStyle(0xc98248, 1);
+    scenePanel.fillRoundedRect(-262, -64, 524, 24, 10);
+    scenePanel.fillStyle(0x9b5734, 0.42);
+    scenePanel.fillRoundedRect(-246, -57, 492, 6, 3);
+    this.overlay.add(scenePanel);
+    this.launchUiElements.push(scenePanel);
+
+    const leftCharm = this.createPixelMilkBowlCharm(-174, -86).setScale(0.62);
+    const rightCharm = this.createPixelFishCharm(174, -91).setScale(0.62);
+    this.overlay.add([leftCharm, rightCharm]);
+    this.launchUiElements.push(leftCharm, rightCharm);
+
+    const heroCat = this.createEyeTrackedCat(0, -91, this.getSelectedCosmetic().run1, this.getSelectedCosmetic().style === 'nyan' ? 1.28 : 1.14, this.getSelectedCosmetic().style === 'nyan');
     heroCat.container.setData('role', 'launchSelectedCat');
     this.overlay.add(heroCat.container);
     this.launchUiElements.push(heroCat.container);
 
-    const milkBadge = this.add.graphics();
-    milkBadge.fillStyle(0x17347e, 0.78);
-    milkBadge.fillRoundedRect(126, -138, 220, 40, 14);
-    milkBadge.lineStyle(3, 0xffffff, 0.76);
-    milkBadge.strokeRoundedRect(126, -138, 220, 40, 14);
-    this.overlay.add(milkBadge);
-    this.launchUiElements.push(milkBadge);
+    const milkBottleMeter = this.add.graphics();
+    milkBottleMeter.setData('role', 'launchMilkBottle');
+    this.overlay.add(milkBottleMeter);
+    this.launchUiElements.push(milkBottleMeter);
 
     const milkText = this.add
-      .text(236, -118, '', this.textStyle(17, '#fffad0'))
+      .text(386, -146, '', this.textStyle(12, '#fffad0'))
       .setOrigin(0.5)
       .setStroke('#17347e', 4);
     milkText.setData('role', 'launchMilkTotal');
@@ -759,14 +773,21 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
     const selectedPanel = this.add.graphics();
     selectedPanel.fillStyle(0x17347e, 0.88);
-    selectedPanel.fillRoundedRect(-60, -68, 420, 104, 18);
+    selectedPanel.fillRoundedRect(-300, -8, 600, 118, 18);
     selectedPanel.lineStyle(4, 0xffffff, 0.8);
-    selectedPanel.strokeRoundedRect(-60, -68, 420, 104, 18);
+    selectedPanel.strokeRoundedRect(-300, -8, 600, 118, 18);
     this.overlay.add(selectedPanel);
     this.launchUiElements.push(selectedPanel);
 
+    const eyebrow = this.add
+      .text(-270, 15, 'CURRENT RUN', this.textStyle(13, '#fffad0'))
+      .setOrigin(0, 0.5)
+      .setStroke('#17347e', 4);
+    this.overlay.add(eyebrow);
+    this.launchUiElements.push(eyebrow);
+
     const selectedTitle = this.add
-      .text(-34, -42, '', this.textStyle(24, '#fffad0'))
+      .text(-270, 43, '', this.textStyle(26, '#ffffff'))
       .setOrigin(0, 0.5)
       .setStroke('#17347e', 5);
     selectedTitle.setData('role', 'launchSelectedTitle');
@@ -774,27 +795,20 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.launchUiElements.push(selectedTitle);
 
     const selectedBody = this.add
-      .text(-34, -6, '', { ...this.textStyle(15, '#dff7ff'), wordWrap: { width: 360 }, lineSpacing: 3 })
+      .text(-270, 80, '', { ...this.textStyle(15, '#dff7ff'), wordWrap: { width: 532 }, lineSpacing: 4 })
       .setOrigin(0, 0.5)
       .setStroke('#17347e', 3);
     selectedBody.setData('role', 'launchSelectedBody');
     this.overlay.add(selectedBody);
     this.launchUiElements.push(selectedBody);
 
-    const startButton = this.createOverlayButton(86, 78, 190, 54, 'Start Run', 0x53d36d, () => this.startGame());
-    const mapButton = this.createOverlayButton(286, 78, 150, 54, 'Milk Map', 0xffd166, () => this.showOverlayMode('map'));
-    const shopButton = this.createOverlayButton(286, 148, 150, 42, 'Shop', 0xff7aa8, () => this.showOverlayMode('shop'));
+    const startButton = this.createHomeActionButton(-190, 152, 'START RUN', 0x53d36d, () => this.startGame());
+    const mapButton = this.createHomeActionButton(0, 152, 'MILK MAP', 0xffd166, () => this.showOverlayMode('map'));
+    const shopButton = this.createHomeActionButton(190, 152, 'SHOP', 0xff7aa8, () => this.showOverlayMode('shop'));
     this.overlay.add([startButton, mapButton, shopButton]);
     this.launchUiElements.push(startButton, mapButton, shopButton);
 
     this.createSpeedSelector();
-
-    const hintText = this.add
-      .text(0, 218, 'Pick a route on the Milk Map, then start the run from here.', this.textStyle(15, '#ffffff'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    this.overlay.add(hintText);
-    this.launchUiElements.push(hintText);
 
     this.updateLaunchUi();
   }
@@ -988,22 +1002,140 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private updateLaunchUi() {
     if (this.launchUiElements.length === 0) return;
-    const selectedNode = this.getSelectedMapNode();
+    const selectedNode = this.getCurrentRunNode();
     const world = getWorldForNode(selectedNode);
     const bottles = this.mapProgress[selectedNode.id] ?? 0;
-    const bottleLabel = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
+    const totalMilk = this.getTotalMilk();
     for (const element of this.launchUiElements) {
       const role = element.getData('role') as string | undefined;
       if (role === 'launchSelectedCat') {
         this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
+      } else if (role === 'launchMilkBottle') {
+        this.drawLaunchMilkBottle(element as Phaser.GameObjects.Graphics, totalMilk);
       } else if (role === 'launchMilkTotal') {
-        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${this.getTotalMilk()}/81`);
+        (element as Phaser.GameObjects.Text).setText(`${totalMilk}/81`);
       } else if (role === 'launchSelectedTitle') {
         (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
       } else if (role === 'launchSelectedBody') {
-        (element as Phaser.GameObjects.Text).setText(`${world.displayName} - ${bottleLabel}\n${selectedNode.flavor}`);
+        (element as Phaser.GameObjects.Text).setText(
+          `${world.displayName} - Level ${this.getNodeLevelNumber(selectedNode)}\nBottles: ${this.formatBottleRating(bottles)}`
+        );
       }
     }
+  }
+
+  private createPixelMilkBowlCharm(x: number, y: number) {
+    const charm = this.add.container(x, y);
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x9b5734, 0.24);
+    shadow.fillRect(-34, 28, 68, 8);
+
+    const bowl = this.add.graphics();
+    bowl.fillStyle(0xffffff, 1);
+    bowl.fillRect(-32, -6, 64, 16);
+    bowl.fillRect(-24, 10, 48, 16);
+    bowl.fillRect(-16, 26, 32, 8);
+    bowl.fillStyle(0xdff7ff, 1);
+    bowl.fillRect(-24, -14, 48, 10);
+    bowl.fillRect(-16, -20, 32, 6);
+    bowl.fillStyle(0x8ad6ff, 1);
+    bowl.fillRect(-18, -10, 36, 6);
+    bowl.fillStyle(0x63c6ff, 1);
+    bowl.fillRect(-24, 10, 48, 6);
+    bowl.fillStyle(0x17347e, 1);
+    bowl.fillRect(-34, -2, 4, 12);
+    bowl.fillRect(30, -2, 4, 12);
+    bowl.fillRect(-22, 26, 44, 4);
+    bowl.fillStyle(0xff9bc4, 1);
+    bowl.fillRect(-10, 12, 20, 8);
+    bowl.fillStyle(0xffffff, 1);
+    bowl.fillRect(-2, 14, 4, 4);
+
+    const sparkle = this.add.graphics();
+    sparkle.fillStyle(0xffefba, 1);
+    sparkle.fillRect(34, -26, 6, 18);
+    sparkle.fillRect(28, -20, 18, 6);
+    sparkle.fillRect(-42, -16, 4, 12);
+    sparkle.fillRect(-46, -12, 12, 4);
+    charm.add([shadow, bowl, sparkle]);
+    return charm;
+  }
+
+  private createPixelFishCharm(x: number, y: number) {
+    const charm = this.add.container(x, y);
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x9b5734, 0.24);
+    shadow.fillRect(-32, 36, 64, 8);
+
+    const fish = this.add.graphics();
+    fish.fillStyle(0x63c6ff, 1);
+    fish.fillRect(-24, -12, 40, 32);
+    fish.fillRect(-16, -20, 24, 48);
+    fish.fillStyle(0xbfefff, 1);
+    fish.fillRect(-16, -4, 24, 16);
+    fish.fillStyle(0xffd166, 1);
+    fish.fillRect(16, -12, 16, 12);
+    fish.fillRect(16, 8, 16, 12);
+    fish.fillRect(32, -4, 8, 16);
+    fish.fillStyle(0x17347e, 1);
+    fish.fillRect(-18, -8, 6, 6);
+    fish.fillStyle(0xffffff, 1);
+    fish.fillRect(-16, -8, 2, 2);
+    fish.fillStyle(0xff9bc4, 1);
+    fish.fillRect(-26, 8, 8, 6);
+    fish.fillStyle(0x2e6dff, 1);
+    fish.fillRect(-8, -20, 16, 6);
+    fish.fillRect(-8, 22, 16, 6);
+
+    const paw = this.add.graphics();
+    paw.fillStyle(0xfff1f7, 1);
+    paw.fillRect(-2, -38, 12, 12);
+    paw.fillRect(-18, -30, 10, 10);
+    paw.fillRect(16, -30, 10, 10);
+    paw.fillRect(-10, -22, 28, 14);
+    charm.add([shadow, fish, paw]);
+    return charm;
+  }
+
+  private drawLaunchMilkBottle(graphics: Phaser.GameObjects.Graphics, totalMilk: number) {
+    const x = 340;
+    const y = -231;
+    const fillHeight = Math.round(Phaser.Math.Clamp(totalMilk / 81, 0, 1) * 42);
+    graphics.clear();
+    graphics.fillStyle(0xff7aa8, 1);
+    graphics.fillRect(x + 32, y - 2, 28, 8);
+    graphics.fillStyle(0x17347e, 1);
+    graphics.fillRect(x + 26, y + 6, 40, 8);
+    graphics.fillRect(x + 18, y + 14, 56, 56);
+
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillRect(x + 34, y + 2, 24, 8);
+    graphics.fillRect(x + 28, y + 10, 36, 8);
+    graphics.fillRect(x + 22, y + 18, 48, 48);
+
+    graphics.fillStyle(0xeef9ff, 1);
+    graphics.fillRect(x + 28, y + 24, 36, 36);
+    graphics.fillStyle(0xbfefff, 1);
+    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, fillHeight);
+    graphics.fillStyle(0x63c6ff, 1);
+    graphics.fillRect(x + 28, y + 60 - fillHeight, 36, Math.min(4, fillHeight));
+
+    graphics.fillStyle(0x17347e, 1);
+    graphics.fillRect(x + 35, y + 36, 6, 12);
+    graphics.fillRect(x + 51, y + 36, 6, 12);
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillRect(x + 37, y + 38, 2, 3);
+    graphics.fillRect(x + 53, y + 38, 2, 3);
+    graphics.fillStyle(0xff9bc4, 1);
+    graphics.fillRect(x + 28, y + 49, 8, 5);
+    graphics.fillRect(x + 56, y + 49, 8, 5);
+    graphics.fillStyle(0x17347e, 1);
+    graphics.fillRect(x + 43, y + 53, 6, 3);
+
+    graphics.lineStyle(3, 0xffffff, 1);
+    graphics.strokeRect(x + 34, y + 2, 24, 8);
+    graphics.strokeRect(x + 28, y + 10, 36, 8);
+    graphics.strokeRect(x + 22, y + 18, 48, 48);
   }
 
   private drawMapNodeButton(button: MapNodeButton) {
@@ -1068,6 +1200,25 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private getSelectedMapNode() {
     return MAP_NODES.find((node) => node.id === this.selectedMapNodeId) ?? MAP_NODES[0];
+  }
+
+  private getCurrentRunNode() {
+    const selectedNode = this.getSelectedMapNode();
+    if (this.isMapNodePlayable(selectedNode)) return selectedNode;
+    const playableNodes = MAP_NODES.filter((node) => this.isMapNodePlayable(node));
+    const incompleteNode = [...playableNodes].reverse().find((node) => (this.mapProgress[node.id] ?? 0) < 3);
+    return incompleteNode ?? playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
+  }
+
+  private getNodeLevelNumber(node: MapNode) {
+    if (node.nodeType === 'bonus') return 'Bonus';
+    const mainNodes = MAP_NODES.filter((candidate) => candidate.worldId === node.worldId && candidate.nodeType === 'main');
+    const index = mainNodes.findIndex((candidate) => candidate.id === node.id);
+    return index >= 0 ? String(index + 1) : '1';
+  }
+
+  private formatBottleRating(bottles: number) {
+    return [0, 1, 2].map((index) => (index < bottles ? '★' : '☆')).join(' ');
   }
 
   private isMapNodeUnlocked(node: MapNode) {
@@ -1318,7 +1469,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     if (!trackedCat) return;
     const usesNyanArt = cosmetic.style === 'nyan';
     trackedCat.base.setTexture(cosmetic.run1);
-    trackedCat.container.setScale(usesNyanArt ? 0.82 : 0.7);
+    const isLaunchCat = container.getData('role') === 'launchSelectedCat';
+    trackedCat.container.setScale(isLaunchCat ? (usesNyanArt ? 1.28 : 1.14) : usesNyanArt ? 0.82 : 0.7);
     this.layoutEyeTrackedCat(trackedCat, usesNyanArt);
   }
 
@@ -1429,6 +1581,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
     clickZone.on('pointerover', () => draw(true));
     clickZone.on('pointerout', () => draw(false));
     return button;
+  }
+
+  private createHomeActionButton(x: number, y: number, label: string, color: number, onClick: () => void) {
+    return this.createOverlayButton(x, y, 164, 54, label, color, onClick);
   }
 
   private buyOrEquipCat(option: CosmeticOption) {
@@ -1720,6 +1876,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .setPosition(0, -202)
       .setFontSize(48)
       .setScale(1);
+    if (mode === 'launch') {
+      this.titleText.setPosition(0, -203).setFontSize(42);
+    }
     this.instructionText.setText('').setPosition(0, 204).setFontSize(22);
     this.updateShopUi();
     this.updateLaunchUi();
@@ -1737,43 +1896,38 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private createSpeedSelector() {
-    const speedTitle = this.add
-      .text(-250, 72, 'Speed', this.textStyle(20, '#fffad0'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 5);
-    this.overlay.add(speedTitle);
-    this.launchUiElements.push(speedTitle);
-
     this.speedButtons = [];
-    SPEED_OPTIONS.forEach((option, index) => {
-      const column = index % 2;
-      const row = Math.floor(index / 2);
-      const baseX = -326 + column * 150;
-      const baseY = 118 + row * 56;
-      const button = this.add.container(baseX, baseY);
-      const background = this.add.graphics();
-      const yarn = this.add.image(-45, 0, Phaser.Math.RND.pick([ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple])).setScale(0.36);
-      const labelText = this.add
-        .text(16, 0, option.label, { ...this.textStyle(11, '#ffffff'), align: 'center', lineSpacing: -3 })
-        .setOrigin(0.5);
-      const clickZone = this.add.zone(0, 0, 136, 44).setInteractive();
-      button.add([background, yarn, labelText, clickZone]);
-      clickZone.on('pointerup', () => {
-        this.shopPointerHandled = true;
-        this.setSpeedMultiplier(option.multiplier);
-      });
-      clickZone.on('pointerover', () => {
-        this.tweens.add({ targets: button, y: baseY - 5, duration: 90, ease: 'Sine.easeOut' });
-      });
-      clickZone.on('pointerout', () => {
-        this.tweens.add({ targets: button, y: baseY, duration: 90, ease: 'Sine.easeOut' });
-      });
-      this.overlay.add(button);
-      this.launchUiElements.push(button);
-      this.speedButtons.push({ option, container: button, background, yarn, labelText });
+    const option = SPEED_OPTIONS.find((candidate) => candidate.multiplier === this.speedMultiplier) ?? SPEED_OPTIONS[1];
+    const button = this.add.container(0, 211);
+    const background = this.add.graphics();
+    const yarn = this.add.image(-70, 0, ASSETS.yarnBlue).setScale(0.3);
+    const labelText = this.add
+      .text(12, 0, '', { ...this.textStyle(11, '#ffffff'), align: 'center' })
+      .setOrigin(0.5)
+      .setStroke('#17347e', 3);
+    const clickZone = this.add.zone(0, 0, 174, 30).setInteractive();
+    button.add([background, yarn, labelText, clickZone]);
+    clickZone.on('pointerup', () => {
+      this.shopPointerHandled = true;
+      this.selectNextSpeedMultiplier();
     });
+    clickZone.on('pointerover', () => {
+      this.tweens.add({ targets: button, y: 207, duration: 90, ease: 'Sine.easeOut' });
+    });
+    clickZone.on('pointerout', () => {
+      this.tweens.add({ targets: button, y: 211, duration: 90, ease: 'Sine.easeOut' });
+    });
+    this.overlay.add(button);
+    this.launchUiElements.push(button);
+    this.speedButtons.push({ option, container: button, background, yarn, labelText });
 
     this.updateSpeedUi();
+  }
+
+  private selectNextSpeedMultiplier() {
+    const currentIndex = SPEED_OPTIONS.findIndex((option) => option.multiplier === this.speedMultiplier);
+    const nextOption = SPEED_OPTIONS[(currentIndex + 1) % SPEED_OPTIONS.length] ?? SPEED_OPTIONS[0];
+    this.setSpeedMultiplier(nextOption.multiplier);
   }
 
   private setSpeedMultiplier(multiplier: number) {
@@ -1781,7 +1935,6 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.speedMultiplier = multiplier;
     this.speed = this.getStartingSpeed();
     playBasketSound('equip');
-    this.saveShopState();
     this.updateSpeedUi();
     this.floatText(optionLabelForMultiplier(multiplier), GAME_WIDTH / 2, 160, '#fff2a1');
   }
@@ -2023,12 +2176,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private updateSpeedUi() {
     for (const button of this.speedButtons) {
-      const selected = button.option.multiplier === this.speedMultiplier;
-      this.drawSpeedButton(button.background, selected, button.option.tint);
+      const option = SPEED_OPTIONS.find((candidate) => candidate.multiplier === this.speedMultiplier) ?? SPEED_OPTIONS[1];
+      button.option = option;
+      this.drawSpeedButton(button.background, true, option.tint);
+      button.labelText.setText(`${optionLabelForMultiplier(option.multiplier)} ▼`);
       button.labelText.setColor('#ffffff');
-      button.yarn.setScale(selected ? 0.54 : 0.42);
-      button.yarn.setTint(selected ? 0xffffff : button.option.tint);
-      const spinDuration = Math.round(1800 / button.option.multiplier);
+      button.yarn.setScale(0.34);
+      button.yarn.setTint(option.tint);
+      const spinDuration = Math.round(1800 / option.multiplier);
       const activeSpinDuration = button.yarn.getData('spinDuration') as number | undefined;
       if (this.phase === 'start' && activeSpinDuration !== spinDuration) {
         this.tweens.killTweensOf(button.yarn);
@@ -2051,11 +2206,11 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private drawSpeedButton(graphics: Phaser.GameObjects.Graphics, selected: boolean, tint: number) {
     graphics.clear();
     graphics.fillStyle(selected ? tint : 0x17347e, selected ? 0.96 : 0.88);
-    graphics.fillRoundedRect(-68, -22, 136, 44, 14);
+    graphics.fillRoundedRect(-87, -15, 174, 30, 11);
     graphics.lineStyle(selected ? 5 : 3, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.72);
-    graphics.strokeRoundedRect(-68, -22, 136, 44, 14);
+    graphics.strokeRoundedRect(-87, -15, 174, 30, 11);
     graphics.fillStyle(0xffffff, selected ? 0.34 : 0.12);
-    graphics.fillCircle(-45, 0, 15);
+    graphics.fillCircle(-70, 0, 11);
   }
 
   private createParticles() {
@@ -2168,8 +2323,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       ]);
       const selectedMouse = localStorage.getItem(STORAGE_KEYS.selectedMouse) ?? 'classic-mouse';
       this.selectedMouseId = this.unlockedMouseOptions.has(selectedMouse) ? selectedMouse : 'classic-mouse';
-      const storedSpeed = Number.parseFloat(localStorage.getItem(STORAGE_KEYS.speed) ?? '1');
-      this.speedMultiplier = SPEED_OPTIONS.some((option) => option.multiplier === storedSpeed) ? storedSpeed : 1;
+      this.speedMultiplier = 1;
       const storedLevel = localStorage.getItem(STORAGE_KEYS.level) as LevelId | null;
       this.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? storedLevel : 'kitchen';
       const storedProgress = JSON.parse(localStorage.getItem(STORAGE_KEYS.mapProgress) ?? '{}') as Record<string, number>;
@@ -2221,7 +2375,6 @@ export class KittyMilkRunScene extends Phaser.Scene {
       localStorage.setItem(STORAGE_KEYS.unlockedTrails, JSON.stringify([...this.unlockedTrails]));
       localStorage.setItem(STORAGE_KEYS.selectedMouse, this.selectedMouseId);
       localStorage.setItem(STORAGE_KEYS.unlockedMouse, JSON.stringify([...this.unlockedMouseOptions]));
-      localStorage.setItem(STORAGE_KEYS.speed, String(this.speedMultiplier));
       localStorage.setItem(STORAGE_KEYS.level, this.selectedLevelId);
       localStorage.setItem(STORAGE_KEYS.mode, this.runMode);
       localStorage.setItem(STORAGE_KEYS.soundFx, String(this.soundFxEnabled));
@@ -2361,12 +2514,13 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private startGame() {
     if (this.phase !== 'start') return;
-    const selectedNode = this.getSelectedMapNode();
+    const selectedNode = this.getCurrentRunNode();
     if (!this.isMapNodePlayable(selectedNode)) {
       this.floatText('Needs more milk', GAME_WIDTH / 2, 150, '#fff2a1');
       playBasketSound('deny');
       return;
     }
+    this.selectedMapNodeId = selectedNode.id;
     this.selectedLevelId = getWorldForNode(selectedNode).themeKey;
     this.phase = 'countdown';
     this.speed = this.getStartingSpeed();
