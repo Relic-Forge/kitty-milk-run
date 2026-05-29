@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from './game/constants';
-import { KittyMilkRunScene } from './game/KittyMilkRunScene';
+import { BootScene } from './game/scenes/BootScene';
+import { LaunchScene } from './game/scenes/LaunchScene';
+import { MilkMapScene } from './game/scenes/MilkMapScene';
+import { RunScene } from './game/scenes/RunScene';
+import { ShopScene } from './game/scenes/ShopScene';
 import './style.css';
 
 const game = new Phaser.Game({
@@ -10,7 +14,7 @@ const game = new Phaser.Game({
   height: GAME_HEIGHT,
   resolution: Math.min(window.devicePixelRatio || 1, 1.3),
   backgroundColor: '#73d36a',
-  scene: [KittyMilkRunScene],
+  scene: [BootScene, LaunchScene, MilkMapScene, ShopScene, RunScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH

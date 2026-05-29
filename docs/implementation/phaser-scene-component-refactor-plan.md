@@ -10,6 +10,32 @@ The main rule for this refactor:
 
 > Preserve the runner gameplay first. Extract around it. Improve visuals after the structure is stable.
 
+## Implementation Status
+
+Completed extraction passes:
+
+- `storageKeys.ts` now owns persisted storage key names.
+- `cosmetics.ts` now owns cat, Nyan, accessory, trail, and mouse cursor definitions.
+- `speedOptions.ts` now owns speed option data and speed label formatting.
+- `runLevels.ts` now owns runner theme/level tuning data.
+- `StorageService.ts` now wraps `localStorage` access with safe string, number, and JSON helpers.
+- `ProgressService.ts` now owns Milk Map progress, node selection, unlock checks, milk totals, map card copy, and post-run bottle awards.
+- `CosmeticService.ts` now owns the yarn basket, selected cosmetics, unlocked item sets, buy/equip behavior, cursor selection, and Cat God fallback cleanup.
+- `AudioSettingsService.ts` now owns sound/music/volume persistence and applies settings to `sound.ts`.
+- `GameStateService.ts` now owns selected run mode, selected speed multiplier, and selected level persistence.
+- `PixelButton.ts` and `PixelPanel.ts` establish reusable pixel UI primitives, with overlay and pause buttons already routed through `PixelButton`.
+- `MilkMapRenderer.ts` owns Milk Map drawing, atlas paging, node buttons, world peeks, selected-card rendering, and map cat avatar updates.
+- `ShopRenderer.ts` owns shop cards, section nav, scrollbar/drag state, Cat God button drawing, and shop card update/draw behavior.
+- `BootScene.ts`, `LaunchScene.ts`, `MilkMapScene.ts`, `ShopScene.ts`, and `RunScene.ts` are registered in `main.ts`.
+- `RunScene.ts` now contains the converted runner scene implementation.
+- `LaunchScene.ts`, `MilkMapScene.ts`, and `ShopScene.ts` are Phaser scene entrypoints with their own scene keys and initial modes.
+- `KittyMilkRunScene.ts` has been removed as a runtime file.
+
+Current phase status:
+
+- Phase 6 is complete. The app boots through Phaser scene registration and navigates between launch, Milk Map, shop, and run scenes.
+- The next planned work is Phase 7: the premium Milk Map visual pass.
+
 ---
 
 ## Current Runtime
@@ -24,16 +50,16 @@ Current stack:
 - Browser canvas rendering
 - Fixed game size: `960x540`
 - Phaser scale mode: `FIT`, centered
-- One primary Phaser scene: `KittyMilkRunScene`
+- Phaser scenes: `BootScene`, `LaunchScene`, `MilkMapScene`, `ShopScene`, and `RunScene`
 - Browser `localStorage` for player state, shop state, map progress, speed, and audio settings
 
-Current architectural issue:
+Current architecture note:
 
 ```text
-KittyMilkRunScene is both the game and the app shell.
+RunScene owns the runner implementation and remains the behavior-preserving host for shared screen setup during this refactor pass.
 ```
 
-The file currently owns too much:
+The broad implementation still owns several responsibilities that later phases can make thinner:
 
 - scene lifecycle
 - start/home overlay
@@ -1642,12 +1668,13 @@ src/game/scenes/LaunchScene.ts
 src/game/scenes/MilkMapScene.ts
 src/game/scenes/ShopScene.ts
 src/game/scenes/RunScene.ts
-src/game/KittyMilkRunScene.ts
 ```
 
 Expected outcome:
 
 `KittyMilkRunScene.ts` is removed or converted into `RunScene.ts`.
+
+Status: complete.
 
 ---
 

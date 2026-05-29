@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSETS, loadGameAssets, type AssetKey } from './assets';
+import { ASSETS, loadGameAssets } from '../assets';
 import {
   CAT_Y,
   DEPTHS,
@@ -14,76 +14,28 @@ import {
   SPAWN_CLEARANCE_Y,
   type GamePhase,
   type ObstacleType
-} from './constants';
-import { playBasketSound, playGameSound, playToneSet, setAudioSettings } from './sound';
-import { MAP_NODES, WORLDS, getWorldForNode, type MapNode, type ThemeKey } from './worldMap';
+} from '../constants';
+import {
+  type AccessoryOption,
+  type CosmeticOption,
+  type MouseOption,
+  type TrailOption
+} from '../data/cosmetics';
+import { LEVELS, type LevelId, type LevelOption } from '../data/runLevels';
+import { SPEED_OPTIONS, optionLabelForMultiplier, type SpeedOption } from '../data/speedOptions';
+import { AudioSettingsService } from '../services/AudioSettingsService';
+import { CosmeticService } from '../services/CosmeticService';
+import { GameStateService, type RunMode } from '../services/GameStateService';
+import { ProgressService } from '../services/ProgressService';
+import { playBasketSound, playGameSound, playToneSet } from '../sound';
+import { PixelButton } from '../ui/components/PixelButton';
+import { MilkMapRenderer } from '../ui/map/MilkMapRenderer';
+import { ShopRenderer } from '../ui/shop/ShopRenderer';
+import { MAP_NODES, WORLDS, getWorldForNode, type MapNode } from '../worldMap';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
   kind?: ObstacleType | 'yarn';
-};
-
-type CosmeticOption = {
-  id: string;
-  name: string;
-  cost: number;
-  run1: string;
-  run2: string;
-  hit: string;
-  style?: 'classic' | 'nyan';
-};
-
-type AccessoryOption = {
-  id: string;
-  name: string;
-  cost: number;
-  asset: string;
-};
-
-type TrailOption = {
-  id: string;
-  name: string;
-  cost: number;
-  asset: string;
-};
-
-type MouseOption = {
-  id: string;
-  name: string;
-  cost: number;
-  asset: string;
-  cursorUrl: string;
-  hotSpot: { x: number; y: number };
-};
-
-type ShopCard = {
-  option: CosmeticOption | AccessoryOption | TrailOption | MouseOption;
-  kind: 'cat' | 'accessory' | 'trail' | 'mouse';
-  container: Phaser.GameObjects.Container;
-  background: Phaser.GameObjects.Graphics;
-  statusText: Phaser.GameObjects.Text;
-  priceText: Phaser.GameObjects.Text;
-};
-
-type CatGodButton = {
-  container: Phaser.GameObjects.Container;
-  background: Phaser.GameObjects.Graphics;
-  icon: Phaser.GameObjects.Graphics;
-  label: Phaser.GameObjects.Text;
-};
-
-type ShopSectionButton = {
-  label: string;
-  target: number;
-  container: Phaser.GameObjects.Container;
-  background: Phaser.GameObjects.Graphics;
-  text: Phaser.GameObjects.Text;
-};
-
-type SpeedOption = {
-  label: string;
-  multiplier: number;
-  tint: number;
 };
 
 type SpeedButton = {
@@ -93,8 +45,6 @@ type SpeedButton = {
   yarn: Phaser.GameObjects.Image;
   labelText: Phaser.GameObjects.Text;
 };
-
-type RunMode = 'milk-run' | 'farm-for-yarn';
 
 type ModeButton = {
   mode: RunMode;
@@ -122,24 +72,6 @@ type AudioVolumeSlider = {
   labelText: Phaser.GameObjects.Text;
 };
 
-type LevelId = ThemeKey;
-
-type LevelOption = {
-  id: LevelId;
-  name: string;
-  order: number;
-  tagline: string;
-  backgroundColor: string;
-  backgroundBand: number;
-  roadOuter: number;
-  roadInner: number;
-  roadEdge: number;
-  laneMark: number;
-  hudTint: number;
-  maxYarn: number;
-  decorKeys: AssetKey[];
-};
-
 type LevelButton = {
   option: LevelOption;
   container: Phaser.GameObjects.Container;
@@ -147,14 +79,6 @@ type LevelButton = {
   icon: Phaser.GameObjects.Graphics;
   numberText: Phaser.GameObjects.Text;
   titleText: Phaser.GameObjects.Text;
-};
-
-type MapNodeButton = {
-  node: MapNode;
-  container: Phaser.GameObjects.Container;
-  background: Phaser.GameObjects.Graphics;
-  rating: Phaser.GameObjects.Graphics;
-  labelText: Phaser.GameObjects.Text;
 };
 
 type EyeTrackedCat = {
@@ -169,172 +93,10 @@ type EyeTrackedCat = {
   lookRange: Phaser.Math.Vector2;
 };
 
-type OverlayMode = 'launch' | 'map' | 'shop';
+export type OverlayMode = 'launch' | 'map' | 'shop';
+export type InitialSceneMode = OverlayMode | 'run';
 
 type VisibleGameObject = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible;
-
-const COSMETICS: CosmeticOption[] = [
-  { id: 'tabby', name: 'Sunny Tabby', cost: 0, run1: ASSETS.catRun1, run2: ASSETS.catRun2, hit: ASSETS.catHit },
-  { id: 'gray', name: 'Gray Moon', cost: 100, run1: ASSETS.catGrayRun1, run2: ASSETS.catGrayRun2, hit: ASSETS.catGrayHit },
-  { id: 'pink', name: 'Pink Sparkle', cost: 135, run1: ASSETS.catPinkRun1, run2: ASSETS.catPinkRun2, hit: ASSETS.catPinkHit },
-  { id: 'tux', name: 'Tuxedo Pop', cost: 175, run1: ASSETS.catTuxRun1, run2: ASSETS.catTuxRun2, hit: ASSETS.catTuxHit },
-  { id: 'rainbow', name: 'Rainbow Scarf', cost: 250, run1: ASSETS.catRainbowRun1, run2: ASSETS.catRainbowRun2, hit: ASSETS.catRainbowHit },
-  { id: 'nyan-cherry', name: 'Nyan Cat', cost: 1200, run1: ASSETS.catNyanCherry, run2: ASSETS.catNyanCherry, hit: ASSETS.catNyanCherry, style: 'nyan' }
-];
-
-const NYAN_VARIATIONS: CosmeticOption[] = [
-  { id: 'nyan-cookies', name: 'Cookies n Creme', cost: 1200, run1: ASSETS.catNyanCookies, run2: ASSETS.catNyanCookies, hit: ASSETS.catNyanCookies, style: 'nyan' },
-  { id: 'nyan-brown-sugar', name: 'Brown Sugar Cinnamon', cost: 1200, run1: ASSETS.catNyanBrownSugar, run2: ASSETS.catNyanBrownSugar, hit: ASSETS.catNyanBrownSugar, style: 'nyan' },
-  { id: 'nyan-blueberry', name: 'Blueberry', cost: 1200, run1: ASSETS.catNyanBlueberry, run2: ASSETS.catNyanBlueberry, hit: ASSETS.catNyanBlueberry, style: 'nyan' },
-  { id: 'nyan-strawberry', name: 'Strawberry Milkshake', cost: 1200, run1: ASSETS.catNyanStrawberry, run2: ASSETS.catNyanStrawberry, hit: ASSETS.catNyanStrawberry, style: 'nyan' },
-  { id: 'nyan-maple', name: 'Frosted Maple Eggo', cost: 1200, run1: ASSETS.catNyanMaple, run2: ASSETS.catNyanMaple, hit: ASSETS.catNyanMaple, style: 'nyan' },
-  { id: 'nyan-banana', name: 'Chocolate Banana Split', cost: 1200, run1: ASSETS.catNyanBanana, run2: ASSETS.catNyanBanana, hit: ASSETS.catNyanBanana, style: 'nyan' },
-  { id: 'nyan-orange-cream', name: 'Orange Cream', cost: 1200, run1: ASSETS.catNyanOrangeCream, run2: ASSETS.catNyanOrangeCream, hit: ASSETS.catNyanOrangeCream, style: 'nyan' },
-  { id: 'nyan-smores', name: 'Smores', cost: 1200, run1: ASSETS.catNyanSmores, run2: ASSETS.catNyanSmores, hit: ASSETS.catNyanSmores, style: 'nyan' },
-  { id: 'nyan-chocolate-fudge', name: 'Chocolate Fudge', cost: 1200, run1: ASSETS.catNyanChocolateFudge, run2: ASSETS.catNyanChocolateFudge, hit: ASSETS.catNyanChocolateFudge, style: 'nyan' },
-  { id: 'nyan-hot-fudge', name: 'Hot Fudge Sundae', cost: 1200, run1: ASSETS.catNyanHotFudge, run2: ASSETS.catNyanHotFudge, hit: ASSETS.catNyanHotFudge, style: 'nyan' },
-  { id: 'nyan-wild-berry', name: 'Wild Berry', cost: 1200, run1: ASSETS.catNyanWildBerry, run2: ASSETS.catNyanWildBerry, hit: ASSETS.catNyanWildBerry, style: 'nyan' }
-];
-
-const ALL_COSMETICS = [...COSMETICS, ...NYAN_VARIATIONS];
-
-const ACCESSORIES: AccessoryOption[] = [
-  { id: 'roomba', name: 'Roomba Rider', cost: 320, asset: ASSETS.roomba }
-];
-
-const TRAILS: TrailOption[] = [
-  { id: 'muddy-feet', name: 'Muddy Feet', cost: 0, asset: ASSETS.paw },
-  { id: 'nyan-cat', name: 'Rainbow Trail', cost: 900, asset: ASSETS.nyanCat }
-];
-
-const DEFAULT_MOUSE_OPTION: MouseOption = {
-  id: 'classic-mouse',
-  name: 'Computer Mouse',
-  cost: 0,
-  asset: ASSETS.mouseCursor,
-  cursorUrl: '/assets/mouse-cursor.svg',
-  hotSpot: { x: 8, y: 14 }
-};
-
-const MOUSE_OPTIONS: MouseOption[] = [
-  {
-    id: 'rodent-mouse',
-    name: 'Mouse',
-    cost: 160,
-    asset: ASSETS.mouseRodent,
-    cursorUrl: '/assets/mouse-rodent.svg',
-    hotSpot: { x: 8, y: 14 }
-  },
-  {
-    id: 'cat-toys',
-    name: 'Cat Toys',
-    cost: 180,
-    asset: ASSETS.mouseCatToys,
-    cursorUrl: '/assets/mouse-cat-toys.svg',
-    hotSpot: { x: 8, y: 14 }
-  },
-  {
-    id: 'cat-nip',
-    name: 'Cat Nip',
-    cost: 230,
-    asset: ASSETS.mouseCatNip,
-    cursorUrl: '/assets/mouse-cat-nip.svg',
-    hotSpot: { x: 8, y: 14 }
-  },
-  {
-    id: 'scratching-post',
-    name: 'Sideways Scratching Post',
-    cost: 280,
-    asset: ASSETS.mouseScratchingPost,
-    cursorUrl: '/assets/mouse-scratching-post.svg',
-    hotSpot: { x: 8, y: 14 }
-  },
-  {
-    id: 'laser-red-dot',
-    name: 'Laser Pointer Red Dot',
-    cost: 500,
-    asset: ASSETS.mouseLaserDot,
-    cursorUrl: '/assets/mouse-laser-dot.svg',
-    hotSpot: { x: 8, y: 14 }
-  }
-];
-
-const ALL_MOUSE_OPTIONS = [DEFAULT_MOUSE_OPTION, ...MOUSE_OPTIONS];
-
-const STORAGE_KEYS = {
-  basket: 'kitty-milk-run:yarn-basket',
-  selected: 'kitty-milk-run:selected-cat',
-  unlocked: 'kitty-milk-run:unlocked-cats',
-  selectedAccessory: 'kitty-milk-run:selected-accessory',
-  unlockedAccessories: 'kitty-milk-run:unlocked-accessories',
-  selectedTrail: 'kitty-milk-run:selected-trail',
-  unlockedTrails: 'kitty-milk-run:unlocked-trails',
-  selectedMouse: 'kitty-milk-run:selected-mouse',
-  unlockedMouse: 'kitty-milk-run:unlocked-mouse',
-  speed: 'kitty-milk-run:milk-speed',
-  level: 'kitty-milk-run:selected-level',
-  mode: 'kitty-milk-run:selected-mode',
-  soundFx: 'kitty-milk-run:sound-fx-enabled',
-  music: 'kitty-milk-run:music-enabled',
-  audioVolume: 'kitty-milk-run:audio-volume',
-  mapProgress: 'kitty-milk-run:milk-map-progress',
-  selectedMapNode: 'kitty-milk-run:selected-map-node'
-} as const;
-
-const SPEED_OPTIONS: SpeedOption[] = [
-  { label: 'Loaf Mode\n0.5x', multiplier: 0.5, tint: 0x8fe8ff },
-  { label: 'Purr Trot\n1x', multiplier: 1, tint: 0x7ef08d },
-  { label: 'Zoomies\n1.5x', multiplier: 1.5, tint: 0xffd166 },
-  { label: 'Turbo Floof\n2x', multiplier: 2, tint: 0xff7aa8 }
-];
-
-const LEVELS: LevelOption[] = [
-  {
-    id: 'kitchen',
-    name: 'Cozy Kitchen',
-    order: 1,
-    tagline: 'Flour pawprints and spoon chaos',
-    backgroundColor: '#f1c975',
-    backgroundBand: 0xffefba,
-    roadOuter: 0xc98248,
-    roadInner: 0xfff7dc,
-    roadEdge: 0xffffff,
-    laneMark: 0xd39154,
-    hudTint: 0x9b5734,
-    maxYarn: 36,
-    decorKeys: [ASSETS.paw, ASSETS.milkBowl, ASSETS.milkBottle, ASSETS.sparkle]
-  },
-  {
-    id: 'living_room',
-    name: 'Living Room',
-    order: 2,
-    tagline: 'Yarn trails and couch-gap zoomies',
-    backgroundColor: '#6fb68a',
-    backgroundBand: 0xf06d5f,
-    roadOuter: 0x5d3b8c,
-    roadInner: 0xff8ec7,
-    roadEdge: 0xffffff,
-    laneMark: 0xfff2bd,
-    hudTint: 0x306955,
-    maxYarn: 36,
-    decorKeys: [ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple, ASSETS.vacuum, ASSETS.mouseCatToys]
-  },
-  {
-    id: 'backyard',
-    name: 'Backyard',
-    order: 3,
-    tagline: 'Fence club adventure pace',
-    backgroundColor: '#77c765',
-    backgroundBand: 0xa7e870,
-    roadOuter: 0x6e9b49,
-    roadInner: 0xd8b176,
-    roadEdge: 0xf6ffe7,
-    laneMark: 0x7ed7ff,
-    hudTint: 0x3f7b45,
-    maxYarn: 38,
-    decorKeys: [ASSETS.flower, ASSETS.grassTuft, ASSETS.paw, ASSETS.cucumber]
-  }
-];
 
 const YARN_START_DISTANCE = 480;
 const YARN_FINISH_PADDING = 980;
@@ -342,26 +104,7 @@ const FARM_YARN_GOAL = 300;
 const FARM_YARN_ROW_SPACING = 150;
 const FARM_YARN_FIRST_ROW_DISTANCE = 250;
 
-function optionLabelForMultiplier(multiplier: number) {
-  return SPEED_OPTIONS.find((option) => option.multiplier === multiplier)?.label.replace('\n', ' ') ?? `${multiplier}x speed`;
-}
-
-const SHOP_VIEWPORT = {
-  top: -112,
-  bottom: 132,
-  height: 244,
-  left: -230,
-  width: 590
-} as const;
-
-const SHOP_CARD = {
-  width: 132,
-  height: 150,
-  gap: 16,
-  columns: 4
-} as const;
-
-export class KittyMilkRunScene extends Phaser.Scene {
+export class RunScene extends Phaser.Scene {
   private cat!: Phaser.GameObjects.Image;
   private roombaMount!: Phaser.GameObjects.Image;
   private crazyHair!: Phaser.GameObjects.Image;
@@ -400,33 +143,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private celebrationObjects: Phaser.GameObjects.GameObject[] = [];
   private emitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private laneSwipeStart: Phaser.Math.Vector2 | undefined;
-  private yarnBasket = 0;
-  private selectedCosmeticId = 'tabby';
-  private selectedAccessoryId = 'none';
-  private selectedTrailId = 'muddy-feet';
-  private selectedMouseId = 'classic-mouse';
-  private unlockedCosmetics = new Set<string>(['tabby']);
-  private unlockedAccessories = new Set<string>();
-  private unlockedTrails = new Set<string>(['muddy-feet']);
-  private unlockedMouseOptions = new Set<string>(['classic-mouse']);
-  private shopCards: ShopCard[] = [];
   private shopUiElements: VisibleGameObject[] = [];
-  private shopScrollContainer!: Phaser.GameObjects.Container;
-  private shopScrollMask!: Phaser.GameObjects.Graphics;
-  private shopGeometryMask!: Phaser.Display.Masks.GeometryMask;
-  private shopScrollElements: VisibleGameObject[] = [];
-  private shopScrollY = 0;
-  private shopScrollTarget = 0;
-  private shopContentHeight = 0;
-  private shopScrollbarTrack!: Phaser.GameObjects.Graphics;
-  private shopScrollbarThumb!: Phaser.GameObjects.Graphics;
-  private shopDragStartY: number | undefined;
-  private shopDragStartScroll = 0;
-  private shopSnapPoints: number[] = [0];
-  private shopSectionTargets = new Map<string, number>();
-  private shopSectionButtons: ShopSectionButton[] = [];
-  private catGodButton!: CatGodButton;
-  private catGodMode = false;
+  private shopRenderer!: ShopRenderer;
   private runUiElements: VisibleGameObject[] = [];
   private launchUiElements: VisibleGameObject[] = [];
   private endUiElements: VisibleGameObject[] = [];
@@ -437,11 +155,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private audioToggleButtons: AudioToggleButton[] = [];
   private audioVolumeSlider!: AudioVolumeSlider;
   private eyeTrackedCats: EyeTrackedCat[] = [];
-  private mapNodeButtons: MapNodeButton[] = [];
-  private mapCardElements: VisibleGameObject[] = [];
-  private mapAtlasElements: VisibleGameObject[] = [];
-  private mapCatAvatar!: Phaser.GameObjects.Image;
-  private mapProgress: Record<string, number> = {};
+  private mapRenderer!: MilkMapRenderer;
   private selectedMapNodeId = MAP_NODES[0].id;
   private mapInputReadyAt = 0;
   private speedMultiplier = 1;
@@ -457,9 +171,18 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private pawTrailTimer = 0;
   private displayedProgress = 0;
   private obstacleHits = 0;
+  private returnToSceneKey: string | undefined;
 
-  constructor() {
-    super('KittyMilkRunScene');
+  constructor(
+    sceneKey = 'RunScene',
+    private readonly initialSceneMode: InitialSceneMode = 'run',
+    private readonly useSceneNavigation = true
+  ) {
+    super(sceneKey);
+  }
+
+  init(data?: { returnTo?: string }) {
+    this.returnToSceneKey = data?.returnTo;
   }
 
   preload() {
@@ -472,6 +195,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.applyAudioSettings();
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.wasd = this.input.keyboard!.addKeys('A,D') as Record<'left' | 'right', Phaser.Input.Keyboard.Key>;
+    this.input.enabled = true;
+    this.input.topOnly = false;
     this.obstacles = this.add.group();
     this.yarns = this.add.group();
     this.scrollables = this.add.group();
@@ -486,11 +211,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.createParticles();
     this.bindInput();
     this.updateMouseCursor();
+    if (this.initialSceneMode === 'run') {
+      this.startGame();
+    }
   }
 
   update(time: number, delta: number) {
     this.updateEyeTrackedCats();
-    this.updateSmoothShopScroll(delta);
+    this.shopRenderer?.updateSmoothScroll(delta, this.overlayMode === 'shop');
 
     if ((this.phase === 'won' || this.phase === 'lost') && Phaser.Input.Keyboard.JustDown(this.cursors.space!)) {
       this.restartGame();
@@ -723,7 +451,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .text(350, -150, '', { ...this.textStyle(22, '#dff7ff'), align: 'right' })
       .setOrigin(1, 0.5)
       .setStroke('#17347e', 5);
-    const backButton = this.createOverlayButton(-350, 204, 120, 38, 'Back', 0xffd166, () => this.showOverlayMode('launch'));
+    const backButton = this.createOverlayButton(-350, 204, 120, 38, 'Back', 0xffd166, () => this.navigateToLaunch());
 
     this.overlay.add([backdrop, panel, this.titleText, this.instructionText, shopTitle, this.shopBasketText, backButton]);
     this.shopUiElements = [shopTitle, this.shopBasketText, backButton];
@@ -732,7 +460,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.createShopCards();
     this.createAudioSettings();
     this.updateShopUi();
-    this.showOverlayMode('launch');
+    this.showOverlayMode(this.initialSceneMode === 'run' ? 'launch' : this.initialSceneMode);
   }
 
   private createLaunchScreen() {
@@ -804,9 +532,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.overlay.add(selectedBody);
     this.launchUiElements.push(selectedBody);
 
-    const startButton = this.createHomeActionButton(-190, 152, 'START RUN', 0x53d36d, () => this.startGame());
-    const mapButton = this.createHomeActionButton(0, 152, 'MILK MAP', 0xffd166, () => this.showOverlayMode('map'));
-    const shopButton = this.createHomeActionButton(190, 152, 'SHOP', 0xff7aa8, () => this.showOverlayMode('shop'));
+    const startButton = this.createHomeActionButton(-190, 152, 'START RUN', 0x53d36d, () => this.navigateToRun());
+    const mapButton = this.createHomeActionButton(0, 152, 'MILK MAP', 0xffd166, () => this.navigateToMap());
+    const shopButton = this.createHomeActionButton(190, 152, 'SHOP', 0xff7aa8, () => this.navigateToShop());
     this.overlay.add([startButton, mapButton, shopButton]);
     this.launchUiElements.push(startButton, mapButton, shopButton);
 
@@ -816,275 +544,59 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private createMilkMapScreen() {
-    this.runUiElements = [];
-    this.mapNodeButtons = [];
-    this.mapCardElements = [];
-
-    const hud = this.add.graphics();
-    hud.fillStyle(0x17347e, 0.86);
-    hud.fillRoundedRect(-386, -184, 772, 40, 14);
-    hud.lineStyle(3, 0xffffff, 0.78);
-    hud.strokeRoundedRect(-386, -184, 772, 40, 14);
-    this.runUiElements.push(hud);
-    this.overlay.add(hud);
-
-    const milkText = this.add
-      .text(232, -164, `Milk bottles: ${this.getTotalMilk()}/${this.getMapMilkGoal()}`, this.textStyle(17, '#fffad0'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    milkText.setData('role', 'mapMilkTotal');
-    this.runUiElements.push(milkText);
-    this.overlay.add(milkText);
-
-    const selectedCat = this.createEyeTrackedCat(-338, -164, this.getSelectedCosmetic().run1, this.getSelectedCosmetic().style === 'nyan' ? 0.42 : 0.36, this.getSelectedCosmetic().style === 'nyan');
-    selectedCat.container.setData('role', 'selectedCat');
-    this.runUiElements.push(selectedCat.container);
-    this.overlay.add(selectedCat.container);
-
-    const shopButton = this.createOverlayButton(320, 202, 112, 36, 'Shop', 0xffd166, () => this.showOverlayMode('shop'));
-    this.runUiElements.push(shopButton);
-    this.overlay.add(shopButton);
-    const backButton = this.createOverlayButton(320, 158, 112, 36, 'Back', 0xff7aa8, () => this.showOverlayMode('launch'));
-    this.runUiElements.push(backButton);
-    this.overlay.add(backButton);
-
-    this.createMapAtlasPage();
-    this.mapCatAvatar = this.add.image(0, 0, this.getSelectedCosmetic().run1).setScale(0.26);
-    this.overlay.add(this.mapCatAvatar);
-    this.runUiElements.push(this.mapCatAvatar);
-    this.createMapPreviewCard();
-    this.updateMapUi();
-  }
-
-  private createMapAtlasPage() {
-    this.runUiElements = this.runUiElements.filter((element) => !this.mapAtlasElements.includes(element));
-    for (const element of this.mapAtlasElements) {
-      element.destroy();
-    }
-    this.mapAtlasElements = [];
-    this.mapNodeButtons = [];
-
-    this.createMapWorldBands();
-    this.createMapConnections();
-    this.createMapNodes();
-  }
-
-  private addMapAtlasElement<T extends VisibleGameObject>(element: T) {
-    this.overlay.add(element);
-    this.runUiElements.push(element);
-    this.mapAtlasElements.push(element);
-    return element;
-  }
-
-  private getActiveMapWorld() {
-    return getWorldForNode(this.getSelectedMapNode());
-  }
-
-  private getWorldNodeList(worldId: string) {
-    return MAP_NODES.filter((node) => node.worldId === worldId);
-  }
-
-  private createMapWorldBands() {
-    const world = this.getActiveMapWorld();
-    const worldIndex = WORLDS.findIndex((candidate) => candidate.id === world.id);
-    const previousWorld = WORLDS[worldIndex - 1];
-    const nextWorld = WORLDS[worldIndex + 1];
-    const activeNodes = this.getWorldNodeList(world.id);
-    const earnedInWorld = activeNodes.reduce((total, node) => total + Phaser.Math.Clamp(this.mapProgress[node.id] ?? 0, 0, 3), 0);
-    const possibleInWorld = activeNodes.filter((node) => node.nodeType !== 'gate').length * 3;
-
-    const band = this.add.graphics();
-    band.fillStyle(Phaser.Display.Color.HexStringToColor(world.palette.background).color, 0.96);
-    band.fillRoundedRect(-324, -132, 648, 270, 22);
-    band.lineStyle(5, world.palette.pathEdge, 0.84);
-    band.strokeRoundedRect(-324, -132, 648, 270, 22);
-    band.fillStyle(world.palette.band, 0.28);
-    for (let y = -108; y < 128; y += 42) {
-      band.fillRoundedRect(-292, y, 584, 18, 9);
-    }
-    band.fillStyle(0xffffff, 0.2);
-    band.fillCircle(-250, -72, 42);
-    band.fillCircle(248, 72, 50);
-    this.addMapAtlasElement(band);
-
-    const atlasLabel = this.add
-      .text(-294, -116, world.atlasLabel, { ...this.textStyle(11, '#17347e'), align: 'left' })
-      .setOrigin(0, 0.5);
-    this.addMapAtlasElement(atlasLabel);
-
-    const banner = this.add
-      .text(0, -92, world.displayName, { ...this.textStyle(25, '#ffffff'), align: 'center', wordWrap: { width: 420 } })
-      .setOrigin(0.5)
-      .setStroke('#17347e', 5);
-    this.addMapAtlasElement(banner);
-
-    const fantasy = this.add
-      .text(0, 120, `${world.mapSkin.pathName} - ${earnedInWorld}/${possibleInWorld} milk here`, {
-        ...this.textStyle(12, '#17347e'),
-        align: 'center',
-        wordWrap: { width: 420 }
-      })
-      .setOrigin(0.5);
-    this.addMapAtlasElement(fantasy);
-
-    if (previousWorld) {
-      this.createWorldPeek(-366, -4, previousWorld.shortName, 'Prev', previousWorld.palette.background, () =>
-        this.selectMapNode(this.getWorldNodeList(previousWorld.id)[0]?.id ?? this.selectedMapNodeId)
-      );
-    }
-    if (nextWorld) {
-      this.createWorldPeek(366, -4, nextWorld.shortName, 'Next', nextWorld.palette.background, () =>
-        this.selectMapNode(this.getWorldNodeList(nextWorld.id)[0]?.id ?? this.selectedMapNodeId)
-      );
-    }
-
-    const detailText = this.add
-      .text(0, 138, nextWorld ? `Next: ${nextWorld.displayName}` : 'Atlas edge: more worlds can grow beyond this page.', {
-        ...this.textStyle(11, '#fffad0'),
-        align: 'center',
-        wordWrap: { width: 420 }
-      })
-      .setOrigin(0.5)
-      .setStroke('#17347e', 3);
-    this.addMapAtlasElement(detailText);
-  }
-
-  private createWorldPeek(x: number, y: number, label: string, eyebrow: string, backgroundColor: string, onClick: () => void) {
-    const color = Phaser.Display.Color.HexStringToColor(backgroundColor).color;
-    const peek = this.add.container(x, y);
-    const bg = this.add.graphics();
-    bg.fillStyle(color, 0.92);
-    bg.fillRoundedRect(-52, -70, 104, 140, 16);
-    bg.lineStyle(3, 0xffffff, 0.75);
-    bg.strokeRoundedRect(-52, -70, 104, 140, 16);
-    const eyebrowText = this.add.text(0, -38, eyebrow, this.textStyle(11, '#17347e')).setOrigin(0.5);
-    const labelText = this.add
-      .text(0, 8, label, { ...this.textStyle(13, '#ffffff'), align: 'center', wordWrap: { width: 82 } })
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    const zone = this.add.zone(0, 0, 104, 140).setInteractive();
-    peek.add([bg, eyebrowText, labelText, zone]);
-    zone.on('pointerup', () => {
-      if (this.time.now < this.mapInputReadyAt) return;
-      onClick();
+    this.mapRenderer = new MilkMapRenderer({
+      scene: this,
+      overlay: this.overlay,
+      textStyle: (fontSize, color) => this.textStyle(fontSize, color),
+      createEyeTrackedCat: (x, y, texture, scale, usesNyanArt) => this.createEyeTrackedCat(x, y, texture, scale, usesNyanArt).container,
+      setEyeTrackedCatTexture: (container, cosmetic) => this.setEyeTrackedCatTexture(container, cosmetic),
+      createOverlayButton: (x, y, width, height, label, color, onClick) => this.createOverlayButton(x, y, width, height, label, color, onClick),
+      getSelectedCosmetic: () => this.getSelectedCosmetic(),
+      getSelectedMapNode: () => this.getSelectedMapNode(),
+      getSelectedMapNodeId: () => this.selectedMapNodeId,
+      getTotalMilk: () => this.getTotalMilk(),
+      getMapMilkGoal: () => this.getMapMilkGoal(),
+      getBottlesForNode: (nodeId) => this.getBottlesForNode(nodeId),
+      getMapCardBody: (node) => this.getMapCardBody(node),
+      isMapNodeUnlocked: (node) => this.isMapNodeUnlocked(node),
+      isMapNodePlayable: (node) => this.isMapNodePlayable(node),
+      getMapInputReadyAt: () => this.mapInputReadyAt,
+      isPointerHandled: () => this.shopPointerHandled,
+      getOverlayMode: () => this.overlayMode,
+      selectMapNode: (nodeId) => this.selectMapNode(nodeId),
+      startGame: () => this.navigateToRun(),
+      showShop: () => this.navigateToShop(),
+      showLaunch: () => this.navigateToLaunch()
     });
-    zone.on('pointerover', () => this.tweens.add({ targets: peek, scale: 1.05, duration: 90, ease: 'Sine.easeOut' }));
-    zone.on('pointerout', () => this.tweens.add({ targets: peek, scale: 1, duration: 90, ease: 'Sine.easeOut' }));
-    this.addMapAtlasElement(peek);
-  }
-
-  private createMapConnections() {
-    const activeWorldId = this.getActiveMapWorld().id;
-    const activeNodes = this.getWorldNodeList(activeWorldId);
-    activeNodes.forEach((to) => {
-      const previousNodeId = to.unlock.previousNodeId;
-      if (!previousNodeId || previousNodeId.includes('_gate')) return;
-      const from = activeNodes.find((node) => node.id === previousNodeId);
-      if (!from) return;
-      const world = getWorldForNode(to);
-      const line = this.add.graphics();
-      line.lineStyle(8, world.palette.pathEdge, 0.9);
-      line.lineBetween(from.x - GAME_WIDTH / 2, from.y - GAME_HEIGHT / 2, to.x - GAME_WIDTH / 2, to.y - GAME_HEIGHT / 2);
-      line.lineStyle(4, world.palette.path, 0.92);
-      line.lineBetween(from.x - GAME_WIDTH / 2, from.y - GAME_HEIGHT / 2, to.x - GAME_WIDTH / 2, to.y - GAME_HEIGHT / 2);
-      this.addMapAtlasElement(line);
-    });
-  }
-
-  private createMapNodes() {
-    this.getWorldNodeList(this.getActiveMapWorld().id).forEach((node) => {
-      const world = getWorldForNode(node);
-      const container = this.add.container(node.x - GAME_WIDTH / 2, node.y - GAME_HEIGHT / 2);
-      const background = this.add.graphics();
-      const rating = this.add.graphics();
-      const labelText = this.add
-        .text(0, node.nodeType === 'gate' ? 32 : 38, node.nodeType === 'bonus' ? 'B' : node.nodeType === 'gate' ? 'Gate' : node.id.slice(-2), {
-          ...this.textStyle(10, '#ffffff'),
-          align: 'center'
-        })
-        .setOrigin(0.5)
-        .setStroke('#17347e', 3);
-      const clickZone = this.add.zone(0, 0, node.nodeType === 'gate' ? 76 : 58, node.nodeType === 'gate' ? 58 : 70).setInteractive();
-      container.add([background, rating, labelText, clickZone]);
-      clickZone.on('pointerup', () => {
-        if (this.shopPointerHandled || this.time.now < this.mapInputReadyAt) return;
-        this.selectMapNode(node.id);
-      });
-      clickZone.on('pointerover', () => this.tweens.add({ targets: container, scale: 1.08, duration: 90, ease: 'Sine.easeOut' }));
-      clickZone.on('pointerout', () => this.tweens.add({ targets: container, scale: 1, duration: 90, ease: 'Sine.easeOut' }));
-      container.setData('worldAccent', world.palette.accent);
-      this.addMapAtlasElement(container);
-      this.mapNodeButtons.push({ node, container, background, rating, labelText });
-    });
-  }
-
-  private createMapPreviewCard() {
-    const card = this.add.graphics();
-    card.fillStyle(0x17347e, 0.92);
-    card.fillRoundedRect(-384, 148, 568, 88, 18);
-    card.lineStyle(4, 0xffffff, 0.82);
-    card.strokeRoundedRect(-384, 148, 568, 88, 18);
-    const title = this.add.text(-360, 164, '', this.textStyle(22, '#fffad0')).setStroke('#17347e', 5);
-    title.setData('role', 'mapCardTitle');
-    const body = this.add.text(-360, 195, '', { ...this.textStyle(13, '#dff7ff'), wordWrap: { width: 520 }, lineSpacing: 1 }).setStroke('#17347e', 3);
-    body.setData('role', 'mapCardBody');
-    const playButton = this.createOverlayButton(110, 192, 118, 44, 'Play', 0x53d36d, () => this.startGame());
-    playButton.setData('role', 'mapPlayButton');
-    this.overlay.add([card, title, body, playButton]);
-    this.runUiElements.push(card, title, body, playButton);
-    this.mapCardElements.push(card, title, body, playButton);
+    this.mapRenderer.create();
+    this.runUiElements = this.mapRenderer.elements;
   }
 
   private selectMapNode(nodeId: string) {
     if (this.phase !== 'start') return;
-    this.selectedMapNodeId = nodeId;
+    ProgressService.setSelectedNode(nodeId);
+    this.selectedMapNodeId = ProgressService.getSelectedNodeId();
     const node = this.getSelectedMapNode();
     this.selectedLevelId = getWorldForNode(node).themeKey;
+    GameStateService.setSelectedLevelId(this.selectedLevelId);
     this.createWorld();
     this.saveShopState();
     if (this.overlayMode === 'map') {
-      this.createMapAtlasPage();
+      this.mapRenderer?.createAtlasPage();
     }
     this.updateMapUi();
     playBasketSound(this.isMapNodePlayable(node) ? 'equip' : 'deny');
   }
 
   private updateMapUi() {
-    const selectedNode = this.getSelectedMapNode();
-    const totalMilk = this.getTotalMilk();
-    for (const element of this.runUiElements) {
-      const role = element.getData('role') as string | undefined;
-      if (role === 'mapMilkTotal') {
-        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${totalMilk}/${this.getMapMilkGoal()}`);
-      } else if (role === 'selectedCat') {
-        this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
-      } else if (role === 'mapCardTitle') {
-        (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
-      } else if (role === 'mapCardBody') {
-        (element as Phaser.GameObjects.Text).setText(this.getMapCardBody(selectedNode));
-      } else if (role === 'mapPlayButton') {
-        element.setVisible(this.overlayMode === 'map' && this.isMapNodePlayable(selectedNode));
-      }
-    }
-
-    if (this.mapCatAvatar) {
-      this.mapCatAvatar
-        .setTexture(this.getSelectedCosmetic().run1)
-        .setPosition(selectedNode.x - GAME_WIDTH / 2, selectedNode.y - GAME_HEIGHT / 2 - 22)
-        .setScale(this.getSelectedCosmetic().style === 'nyan' ? 0.24 : 0.26)
-        .setVisible(this.overlayMode === 'map' && this.isMapNodePlayable(selectedNode));
-    }
-
-    for (const button of this.mapNodeButtons) {
-      this.drawMapNodeButton(button);
-    }
+    this.mapRenderer?.update();
   }
 
   private updateLaunchUi() {
     if (this.launchUiElements.length === 0) return;
     const selectedNode = this.getCurrentRunNode();
     const world = getWorldForNode(selectedNode);
-    const bottles = this.mapProgress[selectedNode.id] ?? 0;
+    const bottles = this.getBottlesForNode(selectedNode.id);
     const totalMilk = this.getTotalMilk();
     for (const element of this.launchUiElements) {
       const role = element.getData('role') as string | undefined;
@@ -1218,308 +730,76 @@ export class KittyMilkRunScene extends Phaser.Scene {
     graphics.strokeRect(x + 22, y + 18, 48, 48);
   }
 
-  private drawMapNodeButton(button: MapNodeButton) {
-    const { node, background, rating } = button;
-    const world = getWorldForNode(node);
-    const selected = node.id === this.selectedMapNodeId;
-    const bottles = this.mapProgress[node.id] ?? 0;
-    const unlocked = this.isMapNodeUnlocked(node);
-    const playable = this.isMapNodePlayable(node);
-
-    background.clear();
-    const alpha = unlocked ? 1 : 0.42;
-    if (node.nodeType === 'gate') {
-      background.fillStyle(playable ? 0x53d36d : 0x6b5b55, alpha);
-      background.fillRoundedRect(-34, -24, 68, 48, 12);
-      background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.72);
-      background.strokeRoundedRect(-34, -24, 68, 48, 12);
-      background.fillStyle(playable ? 0xfff06a : 0x2b1c19, 0.95);
-      background.fillTriangle(-8, -6, 16, 0, -8, 6);
-    } else {
-      background.fillStyle(node.nodeType === 'bonus' ? 0xffd166 : world.palette.node, alpha);
-      background.fillCircle(0, 0, node.nodeType === 'bonus' ? 24 : 22);
-      background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : world.palette.pathEdge, selected ? 1 : 0.88);
-      background.strokeCircle(0, 0, node.nodeType === 'bonus' ? 24 : 22);
-      if (!playable && bottles === 0) {
-        background.fillStyle(0x17347e, 0.82);
-        background.fillRoundedRect(-10, -4, 20, 16, 5);
-        background.fillCircle(0, -7, 8);
-      } else if (selected) {
-        background.fillStyle(0xff7aa8, 0.95);
-        background.fillCircle(-5, -6, 6);
-        background.fillCircle(7, -6, 6);
-        background.fillCircle(0, 4, 7);
-      }
-    }
-
-    rating.clear();
-    if (bottles > 0 && node.nodeType !== 'gate') {
-      for (let i = 0; i < 3; i += 1) {
-        rating.fillStyle(i < bottles ? 0xbfefff : 0x17347e, i < bottles ? 1 : 0.34);
-        rating.fillRoundedRect(-18 + i * 13, 22, 8, 15, 3);
-        rating.fillStyle(0xffffff, i < bottles ? 0.75 : 0.2);
-        rating.fillRoundedRect(-17 + i * 13, 24, 6, 4, 2);
-      }
-    }
-
-    button.labelText.setColor(unlocked ? '#ffffff' : '#b9c5d6');
-  }
-
   private getMapCardBody(node: MapNode) {
-    const world = getWorldForNode(node);
-    if (node.nodeType === 'gate') {
-      return this.isMapNodeUnlocked(node)
-        ? `${world.mapSkin.gateName} is open. The next world is waiting.`
-        : `${node.flavor} Replay earlier levels to earn more.`;
-    }
-    const bottles = this.mapProgress[node.id] ?? 0;
-    const rating = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
-    const locked = this.isMapNodeUnlocked(node) ? '' : ` Need ${node.unlock.requiredMilkBottles} milk.`;
-    return `World: ${world.shortName}  Best: ${rating}\n${node.flavor}${locked}`;
+    return ProgressService.getMapCardBody(node);
   }
 
   private getSelectedMapNode() {
-    return MAP_NODES.find((node) => node.id === this.selectedMapNodeId) ?? MAP_NODES[0];
+    return ProgressService.getSelectedNode();
   }
 
   private getCurrentRunNode() {
-    const selectedNode = this.getSelectedMapNode();
-    if (this.isMapNodePlayable(selectedNode)) return selectedNode;
-    const playableNodes = MAP_NODES.filter((node) => this.isMapNodePlayable(node));
-    const incompleteNode = [...playableNodes].reverse().find((node) => (this.mapProgress[node.id] ?? 0) < 3);
-    return incompleteNode ?? playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
+    return ProgressService.getCurrentRunNode();
   }
 
   private getNodeLevelNumber(node: MapNode) {
-    if (node.nodeType === 'bonus') return 'Bonus';
-    const mainNodes = MAP_NODES.filter((candidate) => candidate.worldId === node.worldId && candidate.nodeType === 'main');
-    const index = mainNodes.findIndex((candidate) => candidate.id === node.id);
-    return index >= 0 ? String(index + 1) : '1';
+    return ProgressService.getNodeLevelNumber(node);
   }
 
   private formatBottleRating(bottles: number) {
-    return [0, 1, 2].map((index) => (index < bottles ? '★' : '☆')).join(' ');
+    return ProgressService.formatBottleRating(bottles);
   }
 
   private isMapNodeUnlocked(node: MapNode) {
-    if (this.getTotalMilk() < node.unlock.requiredMilkBottles) return false;
-    if (!node.unlock.previousNodeId) return true;
-    if (node.unlock.previousNodeId.includes('_gate')) return this.isMapGateOpen(node.unlock.previousNodeId);
-    return (this.mapProgress[node.unlock.previousNodeId] ?? 0) > 0;
+    return ProgressService.isNodeUnlocked(node);
   }
 
   private isMapGateOpen(gateId: string) {
-    const gate = MAP_NODES.find((node) => node.id === gateId);
-    return gate ? this.isMapNodeUnlocked(gate) : false;
+    return ProgressService.isGateOpen(gateId);
   }
 
   private isMapNodePlayable(node: MapNode) {
-    return node.nodeType !== 'gate' && this.isMapNodeUnlocked(node);
+    return ProgressService.isNodePlayable(node);
+  }
+
+  private getBottlesForNode(nodeId: string) {
+    return ProgressService.getBottlesForNode(nodeId);
   }
 
   private getTotalMilk() {
-    return Object.values(this.mapProgress).reduce((total, bottles) => total + Phaser.Math.Clamp(bottles, 0, 3), 0);
+    return ProgressService.getTotalMilk();
   }
 
   private getMapMilkGoal() {
-    return MAP_NODES.filter((node) => node.nodeType !== 'gate').length * 3;
+    return ProgressService.getMapMilkGoal();
   }
 
   private getNewestUnlockedNode() {
-    const playableNodes = MAP_NODES.filter((node) => this.isMapNodePlayable(node));
-    return playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
+    return ProgressService.getNewestUnlockedNode();
   }
 
   private createShopCards() {
-    this.shopCards = [];
-    this.shopScrollElements = [];
-    this.shopScrollY = 0;
-    this.shopScrollTarget = 0;
-    this.shopSnapPoints = [0];
-    this.shopSectionTargets = new Map();
-    this.shopSectionButtons = [];
-    this.shopScrollContainer = this.add.container(0, SHOP_VIEWPORT.top);
-    this.shopScrollMask = this.make.graphics({ x: 0, y: 0, add: false });
-    this.shopScrollMask.fillStyle(0xffffff);
-    this.shopScrollMask.fillRect(GAME_WIDTH / 2 + SHOP_VIEWPORT.left, GAME_HEIGHT / 2 + SHOP_VIEWPORT.top, SHOP_VIEWPORT.width, SHOP_VIEWPORT.height);
-    this.shopGeometryMask = this.shopScrollMask.createGeometryMask();
-    this.overlay.add(this.shopScrollContainer);
-    this.shopUiElements.push(this.shopScrollContainer);
-
-    let contentY = 18;
-    contentY = this.createShopSection('Cats', ALL_COSMETICS, 'cat', contentY);
-    contentY = this.createShopSection('Mouse', ALL_MOUSE_OPTIONS, 'mouse', contentY);
-    contentY = this.createShopSection('Trails', TRAILS, 'trail', contentY);
-    contentY = this.createShopSection('Accessories', ACCESSORIES, 'accessory', contentY);
-    this.shopContentHeight = contentY + 18;
-    const maxScroll = Math.max(0, this.shopContentHeight - SHOP_VIEWPORT.height);
-    this.shopSnapPoints = [...new Set(this.shopSnapPoints.map((point) => Phaser.Math.Clamp(Math.round(point), 0, maxScroll)))].sort((a, b) => a - b);
-    this.shopSectionTargets.forEach((target, label) => {
-      this.shopSectionTargets.set(label, Phaser.Math.Clamp(Math.round(target), 0, maxScroll));
+    this.shopRenderer = new ShopRenderer({
+      scene: this,
+      overlay: this.overlay,
+      textStyle: (fontSize, color) => this.textStyle(fontSize, color),
+      createEyeTrackedCat: (x, y, texture, scale, usesNyanArt) => this.createEyeTrackedCat(x, y, texture, scale, usesNyanArt).container,
+      markPointerHandled: () => {
+        this.shopPointerHandled = true;
+      },
+      buyOrEquipCat: (option) => this.buyOrEquipCat(option),
+      buyOrEquipMouse: (option) => this.buyOrEquipMouse(option),
+      buyOrEquipTrail: (option) => this.buyOrEquipTrail(option),
+      buyOrEquipAccessory: (option) => this.buyOrEquipAccessory(option),
+      toggleCatGodMode: () => this.toggleCatGodMode(),
+      updateRunLoadoutUi: () => this.updateRunLoadoutUi(),
+      updateSpeedUi: () => this.updateSpeedUi(),
+      updateLevelUi: () => this.updateLevelUi(),
+      updateModeUi: () => this.updateModeUi(),
+      updateAudioUi: () => this.updateAudioUi()
     });
-
-    this.shopScrollbarTrack = this.add.graphics();
-    this.shopScrollbarThumb = this.add.graphics();
-    const navButtons = [
-      this.createShopSectionButton('Cats', 'Cats', -76),
-      this.createShopSectionButton('Mouse', 'Mouse', -35),
-      this.createShopSectionButton('Trails', 'Trails', 6),
-      this.createShopSectionButton('Accessories', 'Gear', 47)
-    ];
-    this.catGodButton = this.createCatGodButton(330, 204);
-    this.overlay.add([this.shopScrollbarTrack, this.shopScrollbarThumb, ...navButtons, this.catGodButton.container]);
-    this.shopUiElements.push(this.shopScrollbarTrack, this.shopScrollbarThumb, ...navButtons, this.catGodButton.container);
-    this.setShopScroll(0);
-  }
-
-  private createShopSectionButton(label: string, shortLabel: string, y: number) {
-    const target = this.shopSectionTargets.get(label) ?? 0;
-    const container = this.add.container(-350, y);
-    const background = this.add.graphics();
-    const text = this.add
-      .text(0, 0, shortLabel, this.textStyle(shortLabel.length > 5 ? 12 : 13, '#ffffff'))
-      .setOrigin(0.5)
-      .setStroke('#17347e', 4);
-    const clickZone = this.add.zone(0, 0, 98, 38).setInteractive();
-    container.add([background, text, clickZone]);
-    clickZone.on('pointerup', () => {
-      this.shopPointerHandled = true;
-      this.setShopScrollTarget(target);
-    });
-    clickZone.on('pointerover', () => this.drawShopSectionButtons(label));
-    clickZone.on('pointerout', () => this.drawShopSectionButtons());
-    this.shopSectionButtons.push({ label, target, container, background, text });
-    this.drawShopSectionButtons();
-    return container;
-  }
-
-  private createShopSection(
-    label: string,
-    options: (CosmeticOption | AccessoryOption | TrailOption | MouseOption)[],
-    kind: ShopCard['kind'],
-    y: number
-  ) {
-    this.shopSectionTargets.set(label, Math.max(0, y - 18));
-    const labelText = this.add
-      .text(SHOP_VIEWPORT.left + 12, y, label, this.textStyle(19, '#fffad0'))
-      .setOrigin(0, 0.5)
-      .setStroke('#17347e', 4);
-    labelText.setData('shopHalfHeight', 16);
-    labelText.setMask(this.shopGeometryMask);
-    this.shopScrollContainer.add(labelText);
-    this.shopScrollElements.push(labelText);
-
-    const columnWidth = SHOP_CARD.width + SHOP_CARD.gap;
-    const rowStartX = SHOP_VIEWPORT.left + SHOP_CARD.width / 2 + 8;
-    let row = 0;
-    options.forEach((option, index) => {
-      const column = index % SHOP_CARD.columns;
-      row = Math.floor(index / SHOP_CARD.columns);
-      const x = rowStartX + column * columnWidth;
-      const cardY = y + 96 + row * (SHOP_CARD.height + 24);
-      if (column === 0) this.shopSnapPoints.push(Math.max(0, cardY - SHOP_CARD.height / 2 - 8));
-      this.createShopCard(option, kind, x, cardY);
-    });
-
-    return y + 132 + (row + 1) * (SHOP_CARD.height + 24);
-  }
-
-  private createShopCard(option: CosmeticOption | AccessoryOption | TrailOption | MouseOption, kind: ShopCard['kind'], x: number, y: number) {
-    const card = this.add.container(x, y);
-    const background = this.add.graphics();
-    const preview = this.createShopPreview(option, kind);
-    const nameText = this.add
-      .text(0, 17, option.name, {
-        fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: option.name.length > 20 ? '9px' : option.name.length > 15 ? '11px' : '13px',
-        color: '#ffffff',
-        align: 'center',
-        wordWrap: { width: SHOP_CARD.width - 24 },
-        lineSpacing: -4
-      })
-      .setOrigin(0.5)
-      .setStroke('#17347e', 3);
-    const priceText = this.add.text(0, 47, '', this.textStyle(12, '#fffad0')).setOrigin(0.5);
-    const statusText = this.add.text(0, 63, '', this.textStyle(11, '#ffffff')).setOrigin(0.5);
-    const clickZone = this.add.zone(0, 0, SHOP_CARD.width, SHOP_CARD.height).setInteractive();
-    card.add([background, preview, nameText, priceText, statusText, clickZone]);
-    [background, preview, nameText, priceText, statusText].forEach((element) => element.setMask(this.shopGeometryMask));
-    card.setData('shopHalfHeight', SHOP_CARD.height / 2);
-    clickZone.on('pointerup', () => {
-      this.shopPointerHandled = true;
-      if (kind === 'cat') this.buyOrEquipCat(option as CosmeticOption);
-      if (kind === 'mouse') this.buyOrEquipMouse(option as MouseOption);
-      if (kind === 'trail') this.buyOrEquipTrail(option as TrailOption);
-      if (kind === 'accessory') this.buyOrEquipAccessory(option as AccessoryOption);
-    });
-    clickZone.on('pointerover', () => {
-      this.tweens.add({ targets: card, scale: 1.035, duration: 90, ease: 'Sine.easeOut' });
-    });
-    clickZone.on('pointerout', () => {
-      this.tweens.add({ targets: card, scale: 1, duration: 90, ease: 'Sine.easeOut' });
-    });
-    this.shopScrollContainer.add(card);
-    this.shopScrollElements.push(card);
-    this.shopCards.push({ option, kind, container: card, background, statusText, priceText });
-  }
-
-  private createShopPreview(option: CosmeticOption | AccessoryOption | TrailOption | MouseOption, kind: ShopCard['kind']) {
-    if (kind === 'cat') {
-      const cosmetic = option as CosmeticOption;
-      return this.createEyeTrackedCat(0, -31, cosmetic.run1, cosmetic.style === 'nyan' ? 0.82 : 0.68, cosmetic.style === 'nyan').container;
-    }
-    const scale = option.id === 'nyan-cat' ? 0.8 : kind === 'mouse' ? 1.12 : kind === 'trail' ? 0.92 : 0.62;
-    const y = option.id === 'nyan-cat' ? -36 : kind === 'trail' ? -41 : -42;
-    return this.add.image(0, y, (option as AccessoryOption | TrailOption | MouseOption).asset).setScale(scale);
-  }
-
-  private createCatGodButton(x: number, y: number) {
-    const button = this.add.container(x, y);
-    const background = this.add.graphics();
-    const icon = this.add.graphics();
-    const labelText = this.add.text(30, -1, '', this.textStyle(13, '#ffffff')).setOrigin(0.5).setStroke('#17347e', 4);
-    const clickZone = this.add.zone(0, 0, 146, 38).setInteractive();
-    button.add([background, icon, labelText, clickZone]);
-    clickZone.on('pointerup', () => {
-      this.shopPointerHandled = true;
-      this.toggleCatGodMode();
-    });
-    clickZone.on('pointerover', () => this.drawCatGodButton(true));
-    clickZone.on('pointerout', () => this.drawCatGodButton(false));
-    const catGodButton = { container: button, background, icon, label: labelText };
-    this.catGodButton = catGodButton;
-    this.drawCatGodButton(false);
-    return catGodButton;
-  }
-
-  private drawCatGodButton(hovered = false) {
-    if (!this.catGodButton) return;
-    const { background, icon, label } = this.catGodButton;
-    const active = this.catGodMode;
-    background.clear();
-    background.fillStyle(active ? 0x40d9a4 : 0x5a426f, hovered ? 1 : 0.96);
-    background.fillRoundedRect(-73, -19, 146, 38, 14);
-    background.lineStyle(hovered ? 5 : 4, active ? 0xfff06a : 0xffffff, active ? 1 : 0.84);
-    background.strokeRoundedRect(-73, -19, 146, 38, 14);
-    icon.clear();
-    icon.fillStyle(active ? 0xffd166 : 0xcdb7a4, 1);
-    icon.fillTriangle(-60, -7, -53, -18, -47, -7);
-    icon.fillTriangle(-40, -7, -34, -18, -27, -7);
-    icon.fillRoundedRect(-61, -8, 34, 27, 10);
-    icon.fillStyle(active ? 0x2e6dff : 0x23436a, 1);
-    icon.fillRect(-64, -9, 40, 7);
-    icon.fillStyle(active ? 0xfff06a : 0x6b9bd8, 1);
-    icon.fillTriangle(-64, -9, -53, -18, -42, -9);
-    icon.fillStyle(active ? 0xffffff : 0xe9dcff, 1);
-    icon.fillTriangle(-52, -9, -42, -18, -32, -9);
-    icon.fillStyle(0x17347e, 1);
-    icon.fillCircle(-51, 4, 2);
-    icon.fillCircle(-38, 4, 2);
-    icon.fillTriangle(-45, 8, -42, 8, -43.5, 11);
-    icon.lineStyle(2, active ? 0xfff06a : 0x8ad6ff, 1);
-    icon.lineBetween(-45, 20, -45, 28);
-    icon.lineBetween(-51, 25, -39, 25);
-    label.setText(active ? 'GOD ON' : 'GOD OFF');
+    this.shopRenderer.create();
+    this.shopUiElements.push(...this.shopRenderer.elements);
   }
 
   private createEyeTrackedCat(x: number, y: number, texture: string, scale: number, usesNyanArt = false): EyeTrackedCat {
@@ -1645,26 +925,21 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private createOverlayButton(x: number, y: number, width: number, height: number, label: string, color: number, onClick: () => void) {
-    const button = this.add.container(x, y);
-    const background = this.add.graphics();
-    const labelText = this.add.text(0, 0, label, this.textStyle(18, '#ffffff')).setOrigin(0.5).setStroke('#17347e', 5);
-    const clickZone = this.add.zone(0, 0, width, height).setInteractive();
-    button.add([background, labelText, clickZone]);
-    const draw = (hovered = false) => {
-      background.clear();
-      background.fillStyle(color, hovered ? 1 : 0.94);
-      background.fillRoundedRect(-width / 2, -height / 2, width, height, 16);
-      background.lineStyle(hovered ? 5 : 4, 0xffffff, 0.86);
-      background.strokeRoundedRect(-width / 2, -height / 2, width, height, 16);
-    };
-    draw();
-    clickZone.on('pointerup', () => {
+    const button = new PixelButton({
+      scene: this,
+      x,
+      y,
+      width,
+      height,
+      label,
+      color,
+      textStyle: (fontSize, textColor) => this.textStyle(fontSize, textColor),
+      onClick: () => {
       this.shopPointerHandled = true;
       onClick();
+      }
     });
-    clickZone.on('pointerover', () => draw(true));
-    clickZone.on('pointerout', () => draw(false));
-    return button;
+    return button.container;
   }
 
   private createHomeActionButton(x: number, y: number, label: string, color: number, onClick: () => void) {
@@ -1673,24 +948,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private buyOrEquipCat(option: CosmeticOption) {
     if (this.phase !== 'start') return;
-    if (this.unlockedCosmetics.has(option.id) || this.catGodMode) {
-      this.selectedCosmeticId = option.id;
+    const result = CosmeticService.buyOrEquip('cat', option);
+    if (result.ok) {
       this.cat.setTexture(option.run1);
       this.updateRoombaMount();
-      if (this.catGodMode && !this.unlockedCosmetics.has(option.id)) {
-        this.floatText('Cat God equip', GAME_WIDTH / 2, 128, '#fff2a1');
-      }
-      playBasketSound('equip');
-    } else if (this.yarnBasket >= option.cost) {
-      this.yarnBasket -= option.cost;
-      this.unlockedCosmetics.add(option.id);
-      this.selectedCosmeticId = option.id;
-      this.cat.setTexture(option.run1);
-      this.updateRoombaMount();
-      this.floatText('New kitty!', GAME_WIDTH / 2, 128, '#fff2a1');
-      playBasketSound('buy');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
+      playBasketSound(result.action === 'buy' ? 'buy' : 'equip');
     } else {
-      this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
       this.cameras.main.shake(90, 0.004);
       playBasketSound('deny');
     }
@@ -1700,22 +965,13 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private buyOrEquipAccessory(option: AccessoryOption) {
     if (this.phase !== 'start') return;
-    if (this.unlockedAccessories.has(option.id) || this.catGodMode) {
-      this.selectedAccessoryId = this.selectedAccessoryId === option.id ? 'none' : option.id;
+    const result = CosmeticService.buyOrEquip('accessory', option);
+    if (result.ok) {
       this.updateRoombaMount();
-      if (this.catGodMode && !this.unlockedAccessories.has(option.id)) {
-        this.floatText('Cat God equip', GAME_WIDTH / 2, 128, '#fff2a1');
-      }
-      playBasketSound('equip');
-    } else if (this.yarnBasket >= option.cost) {
-      this.yarnBasket -= option.cost;
-      this.unlockedAccessories.add(option.id);
-      this.selectedAccessoryId = option.id;
-      this.updateRoombaMount();
-      this.floatText('New ride!', GAME_WIDTH / 2, 128, '#fff2a1');
-      playBasketSound('buy');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
+      playBasketSound(result.action === 'buy' ? 'buy' : 'equip');
     } else {
-      this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
       this.cameras.main.shake(90, 0.004);
       playBasketSound('deny');
     }
@@ -1725,22 +981,13 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private buyOrEquipTrail(option: TrailOption) {
     if (this.phase !== 'start') return;
-    if (this.unlockedTrails.has(option.id) || this.catGodMode) {
-      this.selectedTrailId = option.id;
+    const result = CosmeticService.buyOrEquip('trail', option);
+    if (result.ok) {
       if (option.id === 'nyan-cat') this.emitNyanEquipBurst();
-      if (this.catGodMode && !this.unlockedTrails.has(option.id)) {
-        this.floatText('Cat God equip', GAME_WIDTH / 2, 128, '#fff2a1');
-      }
-      playBasketSound('equip');
-    } else if (this.yarnBasket >= option.cost) {
-      this.yarnBasket -= option.cost;
-      this.unlockedTrails.add(option.id);
-      this.selectedTrailId = option.id;
-      if (option.id === 'nyan-cat') this.emitNyanEquipBurst();
-      this.floatText('New trail!', GAME_WIDTH / 2, 128, '#fff2a1');
-      playBasketSound('buy');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
+      playBasketSound(result.action === 'buy' ? 'buy' : 'equip');
     } else {
-      this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
       this.cameras.main.shake(90, 0.004);
       playBasketSound('deny');
     }
@@ -1750,22 +997,13 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private buyOrEquipMouse(option: MouseOption) {
     if (this.phase !== 'start') return;
-    if (this.unlockedMouseOptions.has(option.id) || this.catGodMode) {
-      this.selectedMouseId = option.id;
+    const result = CosmeticService.buyOrEquip('mouse', option);
+    if (result.ok) {
       this.updateMouseCursor();
-      if (this.catGodMode && !this.unlockedMouseOptions.has(option.id)) {
-        this.floatText('Cat God equip', GAME_WIDTH / 2, 128, '#fff2a1');
-      }
-      playBasketSound('equip');
-    } else if (this.yarnBasket >= option.cost) {
-      this.yarnBasket -= option.cost;
-      this.unlockedMouseOptions.add(option.id);
-      this.selectedMouseId = option.id;
-      this.updateMouseCursor();
-      this.floatText('New mouse!', GAME_WIDTH / 2, 128, '#fff2a1');
-      playBasketSound('buy');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
+      playBasketSound(result.action === 'buy' ? 'buy' : 'equip');
     } else {
-      this.floatText('Need more yarn', GAME_WIDTH / 2, 128, '#fff2a1');
+      this.floatText(result.message, GAME_WIDTH / 2, 128, '#fff2a1');
       this.cameras.main.shake(90, 0.004);
       playBasketSound('deny');
     }
@@ -1775,165 +1013,21 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private updateShopUi() {
     if (!this.shopBasketText) return;
-    this.shopBasketText.setText(`Yarn basket: ${this.yarnBasket}`);
-    for (const card of this.shopCards) {
-      const unlocked = this.isShopCardUnlocked(card);
-      const selected = this.isShopCardSelected(card);
-      card.priceText.setText(card.option.cost === 0 ? 'Free' : `${card.option.cost} yarn`);
-      card.statusText.setText(
-        selected
-          ? 'EQUIPPED'
-          : unlocked
-            ? 'EQUIP'
-            : this.catGodMode
-              ? 'EQUIP'
-              : 'BUY'
-      );
-      this.drawShopCard(card.background, selected, unlocked || this.catGodMode);
+    this.shopBasketText.setText(`Yarn basket: ${CosmeticService.getYarnBasket()}`);
+    if (this.overlayMode === 'shop') {
+      this.shopRenderer?.update();
     }
-    this.drawCatGodButton(false);
-    this.updateRunLoadoutUi();
-    this.updateSpeedUi();
-    this.updateLevelUi();
-    this.updateModeUi();
-    this.updateAudioUi();
-  }
-
-  private scrollShopBy(amount: number) {
-    if (this.shopSnapPoints.length <= 1) {
-      this.setShopScrollTarget(this.shopScrollTarget + amount);
-      return;
-    }
-    const direction = Math.sign(amount);
-    if (direction === 0) return;
-    const current = this.shopScrollTarget;
-    const nextPoint =
-      direction > 0
-        ? this.shopSnapPoints.find((point) => point > current + 80) ?? this.shopSnapPoints[this.shopSnapPoints.length - 1]
-        : [...this.shopSnapPoints].reverse().find((point) => point < current - 80) ?? this.shopSnapPoints[0];
-    this.setShopScrollTarget(nextPoint);
-  }
-
-  private setShopScroll(value: number) {
-    const maxScroll = Math.max(0, this.shopContentHeight - SHOP_VIEWPORT.height);
-    this.shopScrollY = Phaser.Math.Clamp(value, 0, maxScroll);
-    this.shopScrollTarget = this.shopScrollY;
-    if (this.shopScrollContainer) this.shopScrollContainer.setY(SHOP_VIEWPORT.top - this.shopScrollY);
-    this.updateShopScrollChrome();
-    this.updateShopScrollVisibility();
-  }
-
-  private setShopScrollTarget(value: number) {
-    const maxScroll = Math.max(0, this.shopContentHeight - SHOP_VIEWPORT.height);
-    this.shopScrollTarget = Phaser.Math.Clamp(value, 0, maxScroll);
-  }
-
-  private snapShopScrollTarget() {
-    if (this.shopSnapPoints.length === 0) return;
-    const nearest = this.shopSnapPoints.reduce((best, point) => {
-      return Math.abs(point - this.shopScrollTarget) < Math.abs(best - this.shopScrollTarget) ? point : best;
-    }, this.shopSnapPoints[0]);
-    this.setShopScrollTarget(nearest);
-  }
-
-  private updateSmoothShopScroll(delta: number) {
-    if (!this.shopScrollContainer || this.overlayMode !== 'shop') return;
-    const maxScroll = Math.max(0, this.shopContentHeight - SHOP_VIEWPORT.height);
-    if (maxScroll <= 0) return;
-    const ease = Math.min(1, delta / 110);
-    this.shopScrollY += (this.shopScrollTarget - this.shopScrollY) * ease;
-    if (Math.abs(this.shopScrollTarget - this.shopScrollY) < 0.4) this.shopScrollY = this.shopScrollTarget;
-    this.shopScrollContainer.setY(SHOP_VIEWPORT.top - this.shopScrollY);
-    this.updateShopScrollChrome();
-    this.updateShopScrollVisibility();
-  }
-
-  private updateShopScrollChrome() {
-    if (!this.shopScrollbarTrack || !this.shopScrollbarThumb) return;
-    const maxScroll = Math.max(0, this.shopContentHeight - SHOP_VIEWPORT.height);
-    const trackX = SHOP_VIEWPORT.left + SHOP_VIEWPORT.width + 10;
-    const trackTop = SHOP_VIEWPORT.top + 8;
-    const trackHeight = SHOP_VIEWPORT.height - 16;
-    this.shopScrollbarTrack.clear();
-    this.shopScrollbarTrack.fillStyle(0x17347e, 0.7);
-    this.shopScrollbarTrack.fillRoundedRect(trackX, trackTop, 8, trackHeight, 4);
-    this.shopScrollbarTrack.fillStyle(0xffffff, 0.35);
-    this.shopScrollbarTrack.fillTriangle(trackX + 4, trackTop - 10, trackX - 2, trackTop, trackX + 10, trackTop);
-    this.shopScrollbarTrack.fillTriangle(trackX + 4, trackTop + trackHeight + 10, trackX - 2, trackTop + trackHeight, trackX + 10, trackTop + trackHeight);
-
-    const thumbHeight = Math.max(36, (SHOP_VIEWPORT.height / Math.max(this.shopContentHeight, SHOP_VIEWPORT.height)) * trackHeight);
-    const thumbY = maxScroll === 0 ? trackTop : trackTop + (this.shopScrollY / maxScroll) * (trackHeight - thumbHeight);
-    this.shopScrollbarThumb.clear();
-    this.shopScrollbarThumb.fillStyle(0xfff06a, 1);
-    this.shopScrollbarThumb.fillRoundedRect(trackX - 3, thumbY, 14, thumbHeight, 7);
-    this.shopScrollbarThumb.lineStyle(2, 0xffffff, 0.9);
-    this.shopScrollbarThumb.strokeRoundedRect(trackX - 3, thumbY, 14, thumbHeight, 7);
-    this.drawShopSectionButtons();
-  }
-
-  private drawShopSectionButtons(hoverLabel?: string) {
-    if (this.shopSectionButtons.length === 0) return;
-    const active = this.shopSectionButtons.reduce((best, button) => {
-      return Math.abs(button.target - this.shopScrollTarget) < Math.abs(best.target - this.shopScrollTarget) ? button : best;
-    }, this.shopSectionButtons[0]);
-    for (const button of this.shopSectionButtons) {
-      const selected = button.label === active.label;
-      const hovered = button.label === hoverLabel;
-      button.background.clear();
-      button.background.fillStyle(selected ? 0x53d36d : hovered ? 0x276fbf : 0x17347e, selected ? 0.98 : 0.9);
-      button.background.fillRoundedRect(-49, -19, 98, 38, 13);
-      button.background.lineStyle(selected ? 5 : 3, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.78);
-      button.background.strokeRoundedRect(-49, -19, 98, 38, 13);
-      button.text.setColor('#ffffff');
-    }
-  }
-
-  private updateShopScrollVisibility() {
-    const visibleTop = this.shopScrollY;
-    const visibleBottom = this.shopScrollY + SHOP_VIEWPORT.height;
-    this.shopScrollElements.forEach((element) => {
-      const halfHeight = (element.getData('shopHalfHeight') as number | undefined) ?? 0;
-      element.setVisible(element.y - halfHeight >= visibleTop && element.y + halfHeight <= visibleBottom);
-    });
   }
 
   private toggleCatGodMode() {
-    this.catGodMode = !this.catGodMode;
-    if (!this.catGodMode) {
-      if (!this.unlockedCosmetics.has(this.selectedCosmeticId)) {
-        this.selectedCosmeticId = 'tabby';
-        this.cat.setTexture(this.getSelectedCosmetic().run1);
-      }
-      if (this.selectedAccessoryId !== 'none' && !this.unlockedAccessories.has(this.selectedAccessoryId)) {
-        this.selectedAccessoryId = 'none';
-        this.updateRoombaMount();
-      }
-      if (!this.unlockedTrails.has(this.selectedTrailId)) {
-        this.selectedTrailId = 'muddy-feet';
-      }
-      if (!this.unlockedMouseOptions.has(this.selectedMouseId)) {
-        this.selectedMouseId = 'classic-mouse';
-        this.updateMouseCursor();
-      }
-    }
+    const active = CosmeticService.toggleCatGodMode();
+    this.cat.setTexture(this.getSelectedCosmetic().run1);
+    this.updateRoombaMount();
+    this.updateMouseCursor();
     this.saveShopState();
     this.updateShopUi();
-    this.floatText(this.catGodMode ? 'Cat God ON' : 'Cat God OFF', GAME_WIDTH / 2, 126, '#fff2a1');
+    this.floatText(active ? 'Cat God ON' : 'Cat God OFF', GAME_WIDTH / 2, 126, '#fff2a1');
     playBasketSound('equip');
-  }
-
-  private isShopCardUnlocked(card: ShopCard) {
-    if (card.kind === 'cat') return this.unlockedCosmetics.has(card.option.id);
-    if (card.kind === 'accessory') return this.unlockedAccessories.has(card.option.id);
-    if (card.kind === 'trail') return this.unlockedTrails.has(card.option.id);
-    return this.unlockedMouseOptions.has(card.option.id);
-  }
-
-  private isShopCardSelected(card: ShopCard) {
-    if (card.kind === 'cat') return this.selectedCosmeticId === card.option.id;
-    if (card.kind === 'accessory') return this.selectedAccessoryId === card.option.id;
-    if (card.kind === 'trail') return this.selectedTrailId === card.option.id;
-    return this.selectedMouseId === card.option.id;
   }
 
   private updateRunLoadoutUi() {
@@ -1942,10 +1036,51 @@ export class KittyMilkRunScene extends Phaser.Scene {
       if (role === 'launchSelectedCat') {
         this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
       } else if (role === 'selectedRoomba') {
-        element.setVisible(this.selectedAccessoryId === 'roomba' && this.overlayMode === 'launch');
+        element.setVisible(CosmeticService.getSelectedAccessoryId() === 'roomba' && this.overlayMode === 'launch');
       } else if (role === 'loadoutText') {
         (element as Phaser.GameObjects.Text).setText(this.getSelectedCosmetic().name);
       }
+    }
+  }
+
+  private navigateToLaunch() {
+    if (!this.useSceneNavigation) {
+      this.showOverlayMode('launch');
+      return;
+    }
+    const target = this.scene.key === 'ShopScene' ? this.returnToSceneKey ?? 'LaunchScene' : 'LaunchScene';
+    this.startScene(target);
+  }
+
+  private navigateToMap() {
+    if (!this.useSceneNavigation) {
+      this.showOverlayMode('map');
+      return;
+    }
+    this.startScene('MilkMapScene');
+  }
+
+  private navigateToShop() {
+    if (!this.useSceneNavigation) {
+      this.showOverlayMode('shop');
+      return;
+    }
+    this.startScene('ShopScene', { returnTo: this.scene.key === 'ShopScene' ? this.returnToSceneKey ?? 'LaunchScene' : this.scene.key });
+  }
+
+  private navigateToRun() {
+    if (!this.useSceneNavigation) {
+      this.startGame();
+      return;
+    }
+    this.startScene('RunScene');
+  }
+
+  private startScene(sceneKey: string, data?: object) {
+    const currentSceneKey = this.scene.key;
+    this.scene.start(sceneKey, data);
+    if (currentSceneKey !== sceneKey) {
+      this.scene.stop(currentSceneKey);
     }
   }
 
@@ -1970,16 +1105,6 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.updateShopUi();
     this.updateLaunchUi();
     this.updateMapUi();
-  }
-
-  private drawShopCard(graphics: Phaser.GameObjects.Graphics, selected: boolean, unlocked: boolean, blocked = false) {
-    graphics.clear();
-    graphics.fillStyle(blocked ? 0x4c5b7a : selected ? 0x53d36d : unlocked ? 0x276fbf : 0x17347e, 0.96);
-    graphics.fillRoundedRect(-SHOP_CARD.width / 2, -SHOP_CARD.height / 2, SHOP_CARD.width, SHOP_CARD.height, 14);
-    graphics.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.82);
-    graphics.strokeRoundedRect(-SHOP_CARD.width / 2, -SHOP_CARD.height / 2, SHOP_CARD.width, SHOP_CARD.height, 14);
-    graphics.fillStyle(0xffffff, 0.16);
-    graphics.fillRoundedRect(-SHOP_CARD.width / 2 + 10, -SHOP_CARD.height / 2 + 8, SHOP_CARD.width - 20, 72, 12);
   }
 
   private createSpeedSelector() {
@@ -2020,6 +1145,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private setSpeedMultiplier(multiplier: number) {
     if (this.phase !== 'start') return;
     this.speedMultiplier = multiplier;
+    GameStateService.setSpeedMultiplier(multiplier);
     this.speed = this.getStartingSpeed();
     playBasketSound('equip');
     this.updateSpeedUi();
@@ -2059,6 +1185,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private setRunMode(mode: RunMode) {
     if (this.phase !== 'start' || this.runMode === mode) return;
     this.runMode = mode;
+    GameStateService.setRunMode(mode);
     this.saveShopState();
     this.updateModeUi();
     this.updateHud();
@@ -2117,34 +1244,37 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private toggleAudioSetting(id: AudioToggleId) {
     if (id === 'sound-fx') {
-      this.soundFxEnabled = !this.soundFxEnabled;
+      AudioSettingsService.toggleSoundFx();
     } else {
-      this.musicEnabled = !this.musicEnabled;
+      AudioSettingsService.toggleMusic();
     }
-    this.applyAudioSettings();
+    this.syncAudioSettingsFromService();
     this.saveShopState();
     this.updateAudioUi();
     playBasketSound('equip');
   }
 
   private setAudioVolume(value: number) {
-    this.audioVolume = Phaser.Math.Clamp(value, 0, 1);
-    this.applyAudioSettings();
+    AudioSettingsService.setVolume(Phaser.Math.Clamp(value, 0, 1));
+    this.syncAudioSettingsFromService();
     this.saveShopState();
     this.updateAudioUi();
   }
 
   private applyAudioSettings() {
-    setAudioSettings({
-      soundFxEnabled: this.soundFxEnabled,
-      musicEnabled: this.musicEnabled,
-      volume: this.audioVolume
-    });
+    AudioSettingsService.apply();
+    this.syncAudioSettingsFromService();
   }
 
   private updateAudioUi() {
     this.audioToggleButtons.forEach((button) => this.drawAudioToggleButton(button));
     this.drawAudioVolumeSlider();
+  }
+
+  private syncAudioSettingsFromService() {
+    this.soundFxEnabled = AudioSettingsService.isSoundFxEnabled();
+    this.musicEnabled = AudioSettingsService.isMusicEnabled();
+    this.audioVolume = AudioSettingsService.getVolume();
   }
 
   private drawAudioToggleButton(button: AudioToggleButton, hovered = false) {
@@ -2222,6 +1352,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private setSelectedLevel(levelId: LevelId) {
     if (this.phase !== 'start' || this.selectedLevelId === levelId) return;
     this.selectedLevelId = levelId;
+    GameStateService.setSelectedLevelId(levelId);
     this.createWorld();
     this.saveShopState();
     this.updateLevelUi();
@@ -2322,23 +1453,30 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gameObjects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number) => {
       if (this.phase === 'start' && this.overlayMode === 'shop') {
-        this.scrollShopBy(deltaY * 0.72);
+        this.shopRenderer.scrollBy(deltaY * 0.72);
       }
     });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.phase === 'start' && this.overlayMode === 'shop' && Phaser.Geom.Rectangle.Contains(new Phaser.Geom.Rectangle(70, 455, 120, 38), pointer.x, pointer.y)) {
+        this.navigateToLaunch();
+        return;
+      }
       this.laneSwipeStart = new Phaser.Math.Vector2(pointer.x, pointer.y);
-      if (this.phase === 'start' && this.overlayMode === 'shop' && pointer.x >= GAME_WIDTH / 2 + SHOP_VIEWPORT.left && pointer.x <= GAME_WIDTH / 2 + SHOP_VIEWPORT.left + SHOP_VIEWPORT.width) {
-        this.shopDragStartY = pointer.y;
-        this.shopDragStartScroll = this.shopScrollTarget;
+      if (this.phase === 'start' && this.overlayMode === 'shop') {
+        this.shopRenderer.startDrag(pointer);
       }
     });
 
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (this.phase === 'start' && this.overlayMode === 'shop' && this.shopDragStartY !== undefined) {
-        this.snapShopScrollTarget();
+      if (this.phase === 'start' && this.overlayMode === 'shop') {
+        this.shopRenderer.endDrag();
+        if (Phaser.Geom.Rectangle.Contains(new Phaser.Geom.Rectangle(70, 455, 120, 38), pointer.x, pointer.y)) {
+          this.laneSwipeStart = undefined;
+          this.navigateToLaunch();
+          return;
+        }
       }
-      this.shopDragStartY = undefined;
       if (!this.laneSwipeStart) return;
       const deltaX = pointer.x - this.laneSwipeStart.x;
       const deltaY = pointer.y - this.laneSwipeStart.y;
@@ -2355,8 +1493,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     });
 
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.phase !== 'start' || this.overlayMode !== 'shop' || this.shopDragStartY === undefined || !pointer.isDown) return;
-      this.setShopScrollTarget(this.shopDragStartScroll + (this.shopDragStartY - pointer.y) * 1.25);
+      if (this.phase !== 'start' || this.overlayMode !== 'shop') return;
+      this.shopRenderer.dragTo(pointer);
     });
   }
 
@@ -2384,104 +1522,49 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private loadShopState() {
     try {
-      const storedBasket = localStorage.getItem(STORAGE_KEYS.basket) ?? localStorage.getItem('kitty-milk-run:yarn-wallet');
-      this.yarnBasket = Number.parseInt(storedBasket ?? '0', 10) || 0;
-      const unlocked = JSON.parse(localStorage.getItem(STORAGE_KEYS.unlocked) ?? '["tabby"]') as string[];
-      this.unlockedCosmetics = new Set(['tabby', ...unlocked.filter((id) => ALL_COSMETICS.some((option) => option.id === id))]);
-      const selected = localStorage.getItem(STORAGE_KEYS.selected) ?? 'tabby';
-      this.selectedCosmeticId = this.unlockedCosmetics.has(selected) ? selected : 'tabby';
-      const unlockedAccessories = JSON.parse(localStorage.getItem(STORAGE_KEYS.unlockedAccessories) ?? '[]') as string[];
-      this.unlockedAccessories = new Set(unlockedAccessories.filter((id) => ACCESSORIES.some((option) => option.id === id)));
-      const selectedAccessory = localStorage.getItem(STORAGE_KEYS.selectedAccessory) ?? 'none';
-      this.selectedAccessoryId = this.unlockedAccessories.has(selectedAccessory) ? selectedAccessory : 'none';
-      const hadLegacyRainbowTrail = selectedAccessory === 'nyan-cat' || unlockedAccessories.includes('nyan-cat');
-      const unlockedTrails = JSON.parse(localStorage.getItem(STORAGE_KEYS.unlockedTrails) ?? '["muddy-feet"]') as string[];
-      this.unlockedTrails = new Set([
-        'muddy-feet',
-        ...unlockedTrails.filter((id) => TRAILS.some((option) => option.id === id)),
-        ...(hadLegacyRainbowTrail ? ['nyan-cat'] : [])
-      ]);
-      const selectedTrail = localStorage.getItem(STORAGE_KEYS.selectedTrail) ?? (selectedAccessory === 'nyan-cat' ? 'nyan-cat' : 'muddy-feet');
-      this.selectedTrailId = this.unlockedTrails.has(selectedTrail) ? selectedTrail : 'muddy-feet';
-      const unlockedMouse = JSON.parse(localStorage.getItem(STORAGE_KEYS.unlockedMouse) ?? '["classic-mouse"]') as string[];
-      this.unlockedMouseOptions = new Set([
-        'classic-mouse',
-        ...unlockedMouse.filter((id) => ALL_MOUSE_OPTIONS.some((option) => option.id === id))
-      ]);
-      const selectedMouse = localStorage.getItem(STORAGE_KEYS.selectedMouse) ?? 'classic-mouse';
-      this.selectedMouseId = this.unlockedMouseOptions.has(selectedMouse) ? selectedMouse : 'classic-mouse';
-      this.speedMultiplier = 1;
-      const storedLevel = localStorage.getItem(STORAGE_KEYS.level) as LevelId | null;
-      this.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? storedLevel : 'kitchen';
-      const storedProgress = JSON.parse(localStorage.getItem(STORAGE_KEYS.mapProgress) ?? '{}') as Record<string, number>;
-      this.mapProgress = Object.fromEntries(
-        Object.entries(storedProgress)
-          .filter(([id, bottles]) => MAP_NODES.some((node) => node.id === id) && Number.isFinite(Number(bottles)))
-          .map(([id, bottles]) => [id, Phaser.Math.Clamp(Number(bottles), 0, 3)])
-      );
-      const storedMapNode = localStorage.getItem(STORAGE_KEYS.selectedMapNode);
-      this.selectedMapNodeId = MAP_NODES.some((node) => node.id === storedMapNode) ? storedMapNode! : this.getNewestUnlockedNode().id;
+      CosmeticService.load();
+      GameStateService.load();
+      AudioSettingsService.loadAndApply();
+      this.speedMultiplier = GameStateService.getSpeedMultiplier();
+      this.selectedLevelId = GameStateService.getSelectedLevelId();
+      ProgressService.load();
+      this.selectedMapNodeId = ProgressService.getSelectedNodeId();
       this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
-      const storedMode = localStorage.getItem(STORAGE_KEYS.mode) as RunMode | null;
-      this.runMode = storedMode === 'farm-for-yarn' ? 'farm-for-yarn' : 'milk-run';
-      this.soundFxEnabled = localStorage.getItem(STORAGE_KEYS.soundFx) !== 'false';
-      this.musicEnabled = localStorage.getItem(STORAGE_KEYS.music) !== 'false';
-      const storedVolume = Number.parseFloat(localStorage.getItem(STORAGE_KEYS.audioVolume) ?? '0.8');
-      this.audioVolume = Number.isFinite(storedVolume) ? Phaser.Math.Clamp(storedVolume, 0, 1) : 0.8;
+      GameStateService.setSelectedLevelId(this.selectedLevelId);
+      this.runMode = GameStateService.getRunMode();
+      this.syncAudioSettingsFromService();
       this.speed = this.getStartingSpeed();
     } catch {
-      this.yarnBasket = 0;
-      this.selectedCosmeticId = 'tabby';
-      this.selectedAccessoryId = 'none';
-      this.selectedTrailId = 'muddy-feet';
-      this.selectedMouseId = 'classic-mouse';
-      this.unlockedCosmetics = new Set(['tabby']);
-      this.unlockedAccessories = new Set();
-      this.unlockedTrails = new Set(['muddy-feet']);
-      this.unlockedMouseOptions = new Set(['classic-mouse']);
-      this.speedMultiplier = 1;
-      this.selectedLevelId = 'kitchen';
-      this.mapProgress = {};
+      CosmeticService.load();
+      GameStateService.load();
+      AudioSettingsService.loadAndApply();
+      this.speedMultiplier = GameStateService.getSpeedMultiplier();
+      this.selectedLevelId = GameStateService.getSelectedLevelId();
       this.selectedMapNodeId = MAP_NODES[0].id;
-      this.runMode = 'milk-run';
-      this.soundFxEnabled = true;
-      this.musicEnabled = true;
-      this.audioVolume = 0.8;
+      ProgressService.load();
+      this.runMode = GameStateService.getRunMode();
+      this.syncAudioSettingsFromService();
       this.speed = this.getStartingSpeed();
     }
   }
 
   private saveShopState() {
-    try {
-      localStorage.setItem(STORAGE_KEYS.basket, String(this.yarnBasket));
-      localStorage.setItem(STORAGE_KEYS.selected, this.selectedCosmeticId);
-      localStorage.setItem(STORAGE_KEYS.unlocked, JSON.stringify([...this.unlockedCosmetics]));
-      localStorage.setItem(STORAGE_KEYS.selectedAccessory, this.selectedAccessoryId);
-      localStorage.setItem(STORAGE_KEYS.unlockedAccessories, JSON.stringify([...this.unlockedAccessories]));
-      localStorage.setItem(STORAGE_KEYS.selectedTrail, this.selectedTrailId);
-      localStorage.setItem(STORAGE_KEYS.unlockedTrails, JSON.stringify([...this.unlockedTrails]));
-      localStorage.setItem(STORAGE_KEYS.selectedMouse, this.selectedMouseId);
-      localStorage.setItem(STORAGE_KEYS.unlockedMouse, JSON.stringify([...this.unlockedMouseOptions]));
-      localStorage.setItem(STORAGE_KEYS.level, this.selectedLevelId);
-      localStorage.setItem(STORAGE_KEYS.mode, this.runMode);
-      localStorage.setItem(STORAGE_KEYS.soundFx, String(this.soundFxEnabled));
-      localStorage.setItem(STORAGE_KEYS.music, String(this.musicEnabled));
-      localStorage.setItem(STORAGE_KEYS.audioVolume, String(this.audioVolume));
-      localStorage.setItem(STORAGE_KEYS.mapProgress, JSON.stringify(this.mapProgress));
-      localStorage.setItem(STORAGE_KEYS.selectedMapNode, this.selectedMapNodeId);
-    } catch {
-      // Local storage is a convenience for the shop loop; the game remains playable without it.
-    }
+    CosmeticService.save();
+    GameStateService.setSelectedLevelId(this.selectedLevelId);
+    GameStateService.setRunMode(this.runMode);
+    GameStateService.setSpeedMultiplier(this.speedMultiplier);
+    AudioSettingsService.save();
+    ProgressService.save();
   }
 
   private handleSpace() {
     if (this.phase === 'start') {
       if (this.overlayMode === 'shop') {
-        this.showOverlayMode('launch');
+        this.navigateToLaunch();
       } else if (this.overlayMode === 'map') {
-        this.showOverlayMode('launch');
+        this.navigateToLaunch();
       } else {
-        this.startGame();
+        this.navigateToRun();
       }
     } else if (this.phase === 'paused') {
       this.resumeRun();
@@ -2520,6 +1603,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
     if (this.phase !== 'paused') return;
     this.clearPauseUi();
     this.tweens.resumeAll();
+    if (this.useSceneNavigation) {
+      this.navigateToLaunch();
+      return;
+    }
     this.resetToStartScreen();
     this.floatText('Cat nap', GAME_WIDTH / 2, 150, '#fff2a1');
     playBasketSound('equip');
@@ -2548,27 +1635,28 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private createFloatingButton(x: number, y: number, width: number, height: number, label: string, color: number, onClick: () => void) {
-    const button = this.add.container(x, y).setDepth(DEPTHS.overlay + 4);
-    const background = this.add.graphics();
-    const labelText = this.add.text(0, 0, label, this.textStyle(17, '#ffffff')).setOrigin(0.5).setStroke('#17347e', 5);
-    const clickZone = this.add.zone(0, 0, width, height).setInteractive();
-    button.add([background, labelText, clickZone]);
-    const draw = (hovered = false) => {
-      background.clear();
-      background.fillStyle(color, hovered ? 1 : 0.95);
-      background.fillRoundedRect(-width / 2, -height / 2, width, height, 15);
-      background.lineStyle(hovered ? 5 : 4, 0xffffff, 0.86);
-      background.strokeRoundedRect(-width / 2, -height / 2, width, height, 15);
-    };
-    draw();
-    clickZone.on('pointerup', onClick);
-    clickZone.on('pointerover', () => draw(true));
-    clickZone.on('pointerout', () => draw(false));
-    return button;
+    const button = new PixelButton({
+      scene: this,
+      x,
+      y,
+      width,
+      height,
+      label,
+      color,
+      fontSize: 17,
+      depth: DEPTHS.overlay + 4,
+      textStyle: (fontSize, textColor) => this.textStyle(fontSize, textColor),
+      onClick
+    });
+    return button.container;
   }
 
   private restartGame() {
     if (this.phase !== 'won' && this.phase !== 'lost') return;
+    if (this.useSceneNavigation && this.scene.key === 'RunScene') {
+      this.scene.restart();
+      return;
+    }
     this.resetToStartScreen();
   }
 
@@ -2601,7 +1689,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.pauseButton.setVisible(false);
     this.startCatBob();
     this.startRunAnimationTimer();
-    this.showOverlayMode('launch');
+    this.showOverlayMode(this.initialSceneMode === 'run' ? 'launch' : this.initialSceneMode);
     this.updateHud();
   }
 
@@ -2613,8 +1701,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
       playBasketSound('deny');
       return;
     }
-    this.selectedMapNodeId = selectedNode.id;
+    ProgressService.setSelectedNode(selectedNode.id);
+    this.selectedMapNodeId = ProgressService.getSelectedNodeId();
     this.selectedLevelId = getWorldForNode(selectedNode).themeKey;
+    GameStateService.setSelectedLevelId(this.selectedLevelId);
     this.phase = 'countdown';
     this.speed = this.getStartingSpeed();
     this.cat.setTexture(this.getSelectedCosmetic().run1);
@@ -2976,7 +2066,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       : this.getCollectedYarnValue();
     if (yarnValue <= 0) return;
     this.yarnScore += yarnValue;
-    this.yarnBasket += yarnValue;
+    CosmeticService.addYarn(yarnValue);
     this.saveShopState();
     this.speed = Math.min(this.getMaxSpeed(), this.speed + 5 * this.speedMultiplier);
     playBasketSound('collect');
@@ -3011,7 +2101,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private updateRoombaMount() {
     if (!this.roombaMount) return;
-    const ridingRoomba = this.selectedAccessoryId === 'roomba' && this.phase === 'playing' && !this.controlsLocked;
+    const ridingRoomba = CosmeticService.getSelectedAccessoryId() === 'roomba' && this.phase === 'playing' && !this.controlsLocked;
     this.roombaMount.setVisible(ridingRoomba);
     if (!ridingRoomba) return;
     this.roombaMount.setPosition(this.cat.x, this.cat.y + 36);
@@ -3021,7 +2111,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private updatePawTrail(delta: number) {
     if (this.controlsLocked) return;
     this.pawTrailTimer += delta;
-    if (this.selectedTrailId === 'nyan-cat') {
+    if (CosmeticService.getSelectedTrailId() === 'nyan-cat') {
       if (this.pawTrailTimer < 44) return;
       this.pawTrailTimer = 0;
       this.createRainbowTrailSegment();
@@ -3162,11 +2252,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private recordMapLevelResult(perfectRun: boolean) {
     const node = this.getSelectedMapNode();
-    if (node.nodeType === 'gate') return;
-    const earnedBottles = perfectRun || this.yarnScore >= node.scoreTargets.threeBottleScore ? 3 : this.yarnScore >= node.scoreTargets.twoBottleScore ? 2 : 1;
-    this.mapProgress[node.id] = Math.max(this.mapProgress[node.id] ?? 0, earnedBottles);
-    this.selectedMapNodeId = this.getNewestUnlockedNode().id;
+    ProgressService.completeRun(node.id, this.yarnScore, perfectRun);
+    this.selectedMapNodeId = ProgressService.getSelectedNodeId();
     this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
+    GameStateService.setSelectedLevelId(this.selectedLevelId);
     this.saveShopState();
     this.updateMapUi();
   }
@@ -3209,7 +2298,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
     const primaryButton = this.createOverlayButton(-96, 142, 172, 48, primaryLabel, 0x53d36d, primaryAction);
-    const homeButton = this.createOverlayButton(112, 142, 142, 48, 'HOME', 0xffd166, () => this.restartGame());
+    const homeButton = this.createOverlayButton(112, 142, 142, 48, 'HOME', 0xffd166, () => this.navigateToLaunch());
     this.overlay.add([scoreLabel, scoreValue, messageText, primaryButton, homeButton]);
     this.endUiElements.push(scoreLabel, scoreValue, messageText, primaryButton, homeButton);
 
@@ -3272,7 +2361,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private updateHud() {
     this.heartIcons.forEach((heart, index) => heart.setTexture(index < this.hearts ? ASSETS.heartFull : ASSETS.heartBroken));
     this.scoreText.setText(this.isFarmForYarn() ? `Farm yarn: ${this.yarnScore}/${FARM_YARN_GOAL}` : `Run yarn: ${this.yarnScore}`);
-    this.basketText.setText(`Yarn basket: ${this.yarnBasket}`);
+    this.basketText.setText(`Yarn basket: ${CosmeticService.getYarnBasket()}`);
     this.distanceText.setText(
       this.isFarmForYarn()
         ? `Farm for Yarn: ${this.getSelectedLevel().name}`
@@ -3341,15 +2430,15 @@ export class KittyMilkRunScene extends Phaser.Scene {
   }
 
   private getSelectedCosmetic() {
-    return ALL_COSMETICS.find((option) => option.id === this.selectedCosmeticId) ?? COSMETICS[0];
+    return CosmeticService.getSelectedCosmetic();
   }
 
   private getSelectedAccessory() {
-    return ACCESSORIES.find((option) => option.id === this.selectedAccessoryId);
+    return CosmeticService.getSelectedAccessory();
   }
 
   private getSelectedMouseOption() {
-    return ALL_MOUSE_OPTIONS.find((option) => option.id === this.selectedMouseId) ?? DEFAULT_MOUSE_OPTION;
+    return CosmeticService.getSelectedMouseOption();
   }
 
   private updateMouseCursor() {
