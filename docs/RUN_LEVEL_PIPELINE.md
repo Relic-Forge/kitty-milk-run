@@ -21,6 +21,7 @@ Kitty Milk Run levels should scale through data recipes first, with scene code a
 
 ```bash
 npm run validate:game-data
+npm run pack:readiness
 npm run test:architecture
 npm run typecheck
 npm run build
@@ -43,6 +44,23 @@ npm run build
 - All mechanic IDs must exist in the registry.
 - Four-lane or five-lane levels should declare the `extra_lanes` mechanic.
 
+## Pack Readiness
+
+Run this before starting a new pack and after each batch of pack data changes:
+
+```bash
+npm run pack:readiness
+```
+
+The readiness pass reports the current world count, playable node count, runtime themes, progression rings, planned-mechanic usage, and remaining theme-specific `RunScene` branches. Warnings are allowed for later planned packs, but the active reskin-only pack should not introduce new warnings or planned-mechanic dependencies.
+
+For Pack 2, the contract is reskin-only:
+
+- Use house/room themes, palettes, copy, pickups, obstacles, finish assets, and map styling for variety.
+- Do not require new runtime mechanics.
+- Treat planned mechanic ideas as future notes unless a separate mechanic implementation pass lands first.
+- Keep `RunScene` free of new level-specific branches.
+
 ## Current Status
 
 - Data-driven lane counts are supported.
@@ -50,3 +68,4 @@ npm run build
 - Obstacle tables, hitboxes, pickup assets, finish distance, spawn cadence, and finish assets are recipe-driven.
 - `extra_lanes` and `bonus_objective` are implemented registry entries.
 - `moving_hazards`, `timed_switches`, `darkness`, `wind_push`, `slippery_floor`, `chaser`, and `jump` are registered as planned mechanics.
+- Pack roadmap lives in `docs/PACK_ROADMAP.md`.

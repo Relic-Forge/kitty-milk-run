@@ -178,7 +178,7 @@ export const WORLDS: WorldConfig[] = [
       gateUnlock: 'sfx_yarn_pop'
     },
     difficultyProfile: { speedMultiplier: 1.08, hazardDensity: 'medium', visualComplexity: 'medium' },
-    mechanicFlags: { ...DEFAULT_FLAGS, movingHazardsEnabled: true }
+    mechanicFlags: { ...DEFAULT_FLAGS }
   },
   {
     id: 'world_03_bedroom',
@@ -207,7 +207,7 @@ export const WORLDS: WorldConfig[] = [
       gateUnlock: 'sfx_blanket_pop'
     },
     difficultyProfile: { speedMultiplier: 1.1, hazardDensity: 'medium', visualComplexity: 'medium' },
-    mechanicFlags: { ...DEFAULT_FLAGS, movingHazardsEnabled: true }
+    mechanicFlags: { ...DEFAULT_FLAGS }
   },
   {
     id: 'world_04_hallway',
@@ -236,7 +236,7 @@ export const WORLDS: WorldConfig[] = [
       gateUnlock: 'sfx_door_click'
     },
     difficultyProfile: { speedMultiplier: 1.14, hazardDensity: 'medium', visualComplexity: 'low' },
-    mechanicFlags: { ...DEFAULT_FLAGS, slipperyFloorEnabled: true }
+    mechanicFlags: { ...DEFAULT_FLAGS }
   },
   {
     id: 'world_05_backyard',

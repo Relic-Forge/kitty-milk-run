@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "validate:game-data": "tsx scripts/validate-game-data.ts",
+    "pack:readiness": "tsx scripts/pack-readiness.ts",
     "test:architecture": "tsx scripts/test-run-architecture.ts"
   },
   "dependencies": {

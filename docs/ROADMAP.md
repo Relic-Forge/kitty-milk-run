@@ -1,48 +1,30 @@
-# Kitty Milk Run — Roadmap
+# Kitty Milk Run Roadmap
 
-## V1 — Playable Race
+This roadmap tracks the broad product direction. Pack-level expansion planning lives in `docs/PACK_ROADMAP.md`.
 
-Goal: prove the game is fun in one short level.
+## Current Foundation
 
-Includes:
+The game now has the core runner, map progression, cosmetics/shop surfaces, reusable run recipes, and validation scripts needed to scale content safely.
 
-- One grassland track
-- Cat racer
-- Dogs
-- Cucumbers
-- Yarn
-- Milk ending
-- Win/loss/replay
+Built foundation:
 
-## V1.1 — Feel Pass
+- Data-driven world map and playable nodes.
+- Generated run recipes for playable nodes.
+- Runtime themes for kitchen, living room, backyard, and Magical Milk Kingdom routes.
+- Implemented `extra_lanes` and `bonus_objective` mechanic registry entries.
+- Validation gates for game data, run architecture, pack readiness, TypeScript, and production build.
 
-- Better collision tuning
-- More expressive cat animation
-- Better obstacle spacing
-- Sound effects
-- Clearer start/win/lose UI
+## Near-Term Work
 
-## V1.2 — Kid Polish
+1. Build Pack 2 as a reskin-only house pack: living room, bedroom, and hallway.
+2. Add room-specific art, palette treatment, obstacle skins, finish skins, and map polish without adding new mechanics.
+3. Browser-smoke one representative level from each Pack 2 world.
+4. Keep planned mechanics out of Pack 2 recipes unless a separate implementation pass lands first.
 
-- Cat name on start screen
-- Pick cat color
-- Cute milk celebration
-- More grassland decorations
-- Funny obstacle reactions
+## Later Work
 
-## V2 — Progression
-
-- Multiple tracks
-- Yarn total across runs
-- Unlock cats
-- Unlock hats/collars
-- Milk café home screen
-
-## V3 — Bigger Game Ideas
-
-- Boss dog chase level
-- Tin foil lightning obstacle
-- Cucumber panic mode
-- Rainbow bonus track
-- Local two-player race
-- Simple level builder
+- Yard and porch pack.
+- Sidewalk and neighborhood pack.
+- New mechanic passes for moving hazards, slippery floors, wind push, chasers, darkness, timed switches, and jump.
+- Dream, holiday, or fantasy packs after the close-to-home arc has enough variety.
+- Optional level-builder tooling once the recipe pipeline is stable enough to expose safely.
