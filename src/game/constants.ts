@@ -1,7 +1,6 @@
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 
-export const LANES = [310, 480, 650] as const;
 export const CAT_Y = 420;
 
 export const INITIAL_HEARTS = 3;

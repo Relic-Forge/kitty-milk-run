@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "validate:game-data": "tsx scripts/validate-game-data.ts"
+    "validate:game-data": "tsx scripts/validate-game-data.ts",
+    "test:architecture": "tsx scripts/test-run-architecture.ts"
   },
   "dependencies": {
     "phaser": "latest",

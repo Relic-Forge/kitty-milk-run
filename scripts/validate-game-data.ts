@@ -6,7 +6,10 @@ import {
   type MapNode
 } from '../src/game/worldMap';
 import { LEVELS } from '../src/game/data/runLevels';
+import { RUN_RECIPES, pickWeightedObstacle } from '../src/game/data/runRecipes';
 import { ACCESSORIES, ALL_COSMETICS, ALL_MOUSE_OPTIONS, TRAILS } from '../src/game/data/cosmetics';
+import { buildLaneLayout } from '../src/game/systems/laneLayout';
+import { isKnownMechanicId } from '../src/game/systems/mechanics';
 
 const errors: string[] = [];
 
@@ -53,6 +56,37 @@ requireUnique('cat cosmetic', ALL_COSMETICS.map((option) => option.id));
 requireUnique('accessory', ACCESSORIES.map((option) => option.id));
 requireUnique('trail', TRAILS.map((option) => option.id));
 requireUnique('mouse option', ALL_MOUSE_OPTIONS.map((option) => option.id));
+requireUnique('run recipe', RUN_RECIPES.map((recipe) => recipe.id));
+
+for (const node of MAP_NODES.filter((candidate) => candidate.nodeType !== 'gate')) {
+  if (!RUN_RECIPES.some((recipe) => recipe.nodeId === node.id)) {
+    errors.push(`${node.id} has no run recipe`);
+  }
+}
+
+for (const recipe of RUN_RECIPES) {
+  if (!getMapNodeById(recipe.nodeId)) errors.push(`${recipe.id} references missing node ${recipe.nodeId}`);
+  try {
+    buildLaneLayout({ laneCount: recipe.laneCount });
+  } catch (error) {
+    errors.push(`${recipe.id} has invalid laneCount ${recipe.laneCount}: ${(error as Error).message}`);
+  }
+  if (recipe.finishDistance <= recipe.yarnStartDistance + recipe.yarnFinishPadding) {
+    errors.push(`${recipe.id} yarn spawn window does not fit inside finishDistance`);
+  }
+  if (recipe.spawnCadenceMs < 400) errors.push(`${recipe.id} spawnCadenceMs is too low`);
+  if (recipe.spawnClearanceY < 80) errors.push(`${recipe.id} spawnClearanceY is too low`);
+  if (recipe.pickupAssets.length === 0) errors.push(`${recipe.id} has no pickup assets`);
+  if (recipe.obstacles.length === 0) errors.push(`${recipe.id} has no obstacles`);
+  if (!pickWeightedObstacle(recipe.obstacles, 0, 0)) errors.push(`${recipe.id} has no obstacle available at run start`);
+  for (const mechanicId of recipe.mechanicIds) {
+    if (!isKnownMechanicId(mechanicId)) errors.push(`${recipe.id} references unknown mechanic ${mechanicId}`);
+  }
+  for (const obstacle of recipe.obstacles) {
+    if (obstacle.weight <= 0) errors.push(`${recipe.id}/${obstacle.id} obstacle weight must be positive`);
+    if (obstacle.hitRadiusX <= 0 || obstacle.hitRadiusY <= 0) errors.push(`${recipe.id}/${obstacle.id} hit radius must be positive`);
+  }
+}
 
 if (!ALL_COSMETICS.some((option) => option.id === 'tabby')) errors.push('Default selected cat tabby is missing');
 if (!TRAILS.some((option) => option.id === 'muddy-feet')) errors.push('Default selected trail muddy-feet is missing');
@@ -64,4 +98,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`Game data validation passed: ${MAP_NODES.length} nodes, ${WORLDS.length} worlds.`);
+console.log(`Game data validation passed: ${MAP_NODES.length} nodes, ${WORLDS.length} worlds, ${RUN_RECIPES.length} run recipes.`);

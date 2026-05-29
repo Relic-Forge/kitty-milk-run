@@ -3,17 +3,10 @@ import { ASSETS, loadGameAssets } from '../assets';
 import {
   CAT_Y,
   DEPTHS,
-  FINISH_DISTANCE,
   GAME_HEIGHT,
   GAME_WIDTH,
   INITIAL_HEARTS,
-  INITIAL_SPEED,
-  LANES,
-  MAX_SPEED,
-  OBSTACLE_SPAWN_MS,
-  SPAWN_CLEARANCE_Y,
-  type GamePhase,
-  type ObstacleType
+  type GamePhase
 } from '../constants';
 import {
   type AccessoryOption,
@@ -22,21 +15,24 @@ import {
   type TrailOption
 } from '../data/cosmetics';
 import { LEVELS, type LevelId, type LevelOption } from '../data/runLevels';
+import { pickWeightedObstacle, type ObstacleId, type RunLevelRecipe } from '../data/runRecipes';
 import { SPEED_OPTIONS, optionLabelForMultiplier, type SpeedOption } from '../data/speedOptions';
 import { AudioSettingsService } from '../services/AudioSettingsService';
 import { CosmeticService } from '../services/CosmeticService';
 import { GameStateService, type RunMode } from '../services/GameStateService';
 import { ProgressService } from '../services/ProgressService';
 import { playBasketSound, playGameSound, playToneSet } from '../sound';
+import type { LaneLayout } from '../systems/laneLayout';
 import { PixelButton } from '../ui/components/PixelButton';
 import { MilkMapRenderer } from '../ui/map/MilkMapRenderer';
 import { ShopRenderer } from '../ui/shop/ShopRenderer';
-import { MAP_NODES, WORLDS, getWorldForNode, type MapNode } from '../worldMap';
+import { buildRunConfig } from '../viewModels/buildRunConfig';
+import { MAP_NODES, getWorldForNode, type MapNode } from '../worldMap';
 import { BaseScene } from './BaseScene';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
-  kind?: ObstacleType | 'yarn';
+  kind?: ObstacleId | 'yarn';
 };
 
 type SpeedButton = {
@@ -99,8 +95,6 @@ export type InitialSceneMode = OverlayMode | 'run';
 
 type VisibleGameObject = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible;
 
-const YARN_START_DISTANCE = 480;
-const YARN_FINISH_PADDING = 980;
 const FARM_YARN_GOAL = 300;
 const FARM_YARN_ROW_SPACING = 150;
 const FARM_YARN_FIRST_ROW_DISTANCE = 250;
@@ -115,7 +109,7 @@ export class RunScene extends BaseScene {
   private currentLane = 1;
   private hearts = INITIAL_HEARTS;
   private yarnScore = 0;
-  private speed = INITIAL_SPEED;
+  private speed = 0;
   private distance = 0;
   private spawnTimer = 0;
   private yarnSpawnIndex = 0;
@@ -172,6 +166,8 @@ export class RunScene extends BaseScene {
   private pawTrailTimer = 0;
   private displayedProgress = 0;
   private obstacleHits = 0;
+  private cachedRunConfig: ReturnType<typeof buildRunConfig> | undefined;
+  private cachedRunConfigNodeId: string | undefined;
   private returnToSceneKey: string | undefined;
   private runNodeId: string | undefined;
 
@@ -248,7 +244,7 @@ export class RunScene extends BaseScene {
     }
     this.updateHud();
 
-    if (!this.isFarmForYarn() && this.spawnTimer >= OBSTACLE_SPAWN_MS) {
+    if (!this.isFarmForYarn() && this.spawnTimer >= this.getRunRecipe().spawnCadenceMs) {
       this.spawnObstacle();
       this.spawnTimer = Phaser.Math.Between(-130, 120);
     }
@@ -259,7 +255,7 @@ export class RunScene extends BaseScene {
       this.spawnDueYarn();
     }
 
-    if (!this.isFarmForYarn() && this.distance >= FINISH_DISTANCE) {
+    if (!this.isFarmForYarn() && this.distance >= this.getRunRecipe().finishDistance) {
       this.winGame();
     }
   }
@@ -267,6 +263,7 @@ export class RunScene extends BaseScene {
   private createWorld() {
     const level = this.getSelectedLevel();
     const levelId = level.id as string;
+    const laneLayout = this.getLaneLayout();
     this.scrollables.clear(false, false);
     this.worldObjects.clear(true, true);
     this.cameras.main.setBackgroundColor(level.backgroundColor);
@@ -282,12 +279,12 @@ export class RunScene extends BaseScene {
       this.createKingdomSkyline();
     }
 
-    this.addWorldObject(this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 548, GAME_HEIGHT + 30, level.roadOuter).setDepth(DEPTHS.track));
-    this.addWorldObject(this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 496, GAME_HEIGHT + 30, level.roadInner).setDepth(DEPTHS.track));
-    this.addWorldObject(this.add.rectangle(220, GAME_HEIGHT / 2, 14, GAME_HEIGHT + 30, level.roadEdge, 0.95).setDepth(DEPTHS.trackDecor));
-    this.addWorldObject(this.add.rectangle(740, GAME_HEIGHT / 2, 14, GAME_HEIGHT + 30, level.roadEdge, 0.95).setDepth(DEPTHS.trackDecor));
+    this.addWorldObject(this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, laneLayout.roadOuterWidth, GAME_HEIGHT + 30, level.roadOuter).setDepth(DEPTHS.track));
+    this.addWorldObject(this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, laneLayout.roadInnerWidth, GAME_HEIGHT + 30, level.roadInner).setDepth(DEPTHS.track));
+    this.addWorldObject(this.add.rectangle(laneLayout.roadLeftEdge, GAME_HEIGHT / 2, 14, GAME_HEIGHT + 30, level.roadEdge, 0.95).setDepth(DEPTHS.trackDecor));
+    this.addWorldObject(this.add.rectangle(laneLayout.roadRightEdge, GAME_HEIGHT / 2, 14, GAME_HEIGHT + 30, level.roadEdge, 0.95).setDepth(DEPTHS.trackDecor));
 
-    for (const x of [395, 565]) {
+    for (const x of laneLayout.laneMarkerXs) {
       for (let y = -30; y < GAME_HEIGHT + 60; y += 72) {
         if (levelId === 'magical-kingdom') {
           const star = this.add.star(x, y, 5, 5, 13, level.laneMark, 0.74).setDepth(DEPTHS.trackDecor);
@@ -377,7 +374,7 @@ export class RunScene extends BaseScene {
   }
 
   private createPlayer() {
-    this.cat = this.add.image(LANES[this.currentLane], CAT_Y, this.getSelectedCosmetic().run1).setDepth(DEPTHS.player).setScale(0.95);
+    this.cat = this.add.image(this.getLaneX(this.currentLane), CAT_Y, this.getSelectedCosmetic().run1).setDepth(DEPTHS.player).setScale(0.95);
     this.roombaMount = this.add
       .image(this.cat.x, this.cat.y + 36, ASSETS.roomba)
       .setDepth(DEPTHS.player - 1)
@@ -403,7 +400,8 @@ export class RunScene extends BaseScene {
   }
 
   private createFinishObjects() {
-    this.finishLine = this.add.container(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE).setDepth(DEPTHS.finish);
+    const finishDistance = this.getRunRecipe().finishDistance;
+    this.finishLine = this.add.container(GAME_WIDTH / 2, CAT_Y - finishDistance).setDepth(DEPTHS.finish);
     const line = this.add.graphics();
     line.fillStyle(0xffffff, 1);
     line.fillRect(-250, -16, 500, 32);
@@ -417,8 +415,7 @@ export class RunScene extends BaseScene {
     this.finishLine.add(this.add.image(-290, -10, ASSETS.finishFlag));
     this.finishLine.add(this.add.image(290, -10, ASSETS.finishFlag).setFlipX(true));
 
-    const finishTexture = this.selectedLevelId === 'magical-kingdom' ? ASSETS.magicKingdomRoyalMilk : ASSETS.milkBottle;
-    this.milkBottle = this.add.image(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE - 120, finishTexture).setDepth(DEPTHS.finish);
+    this.milkBottle = this.add.image(GAME_WIDTH / 2, CAT_Y - finishDistance - 120, this.getRunRecipe().finishAsset).setDepth(DEPTHS.finish);
   }
 
   private createOverlay() {
@@ -1510,7 +1507,7 @@ export class RunScene extends BaseScene {
 
   private resetRunState() {
     this.phase = 'start';
-    this.currentLane = 1;
+    this.currentLane = this.getStartingLaneIndex();
     this.hearts = INITIAL_HEARTS;
     this.yarnScore = 0;
     this.speed = this.getStartingSpeed();
@@ -1691,12 +1688,12 @@ export class RunScene extends BaseScene {
 
     this.resetRunState();
     this.createWorld();
-    this.cat.setPosition(LANES[this.currentLane], CAT_Y).setScale(0.95).setAlpha(1).setAngle(0).setVisible(true);
+    this.cat.setPosition(this.getLaneX(this.currentLane), CAT_Y).setScale(0.95).setAlpha(1).setAngle(0).setVisible(true);
     this.cat.setTexture(this.getSelectedCosmetic().run1);
     this.roombaMount.setVisible(false).setAngle(0);
     this.crazyHair.setVisible(false);
-    this.finishLine.setVisible(true).setPosition(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE);
-    this.milkBottle.setVisible(true).setPosition(GAME_WIDTH / 2, CAT_Y - FINISH_DISTANCE - 120);
+    this.finishLine.setVisible(true).setPosition(GAME_WIDTH / 2, CAT_Y - this.getRunRecipe().finishDistance);
+    this.milkBottle.setVisible(true).setPosition(GAME_WIDTH / 2, CAT_Y - this.getRunRecipe().finishDistance - 120);
     this.overlay.setPosition(GAME_WIDTH / 2, GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
     this.pauseButton.setVisible(false);
     this.startCatBob();
@@ -1776,50 +1773,35 @@ export class RunScene extends BaseScene {
   }
 
   private spawnObstacle() {
-    if (this.distance > FINISH_DISTANCE - 1150) return;
+    const recipe = this.getRunRecipe();
+    if (this.distance > recipe.finishDistance - recipe.finishSpawnBuffer) return;
     const lane = this.pickSafeLane(this.obstacles, this.yarns, -70, true);
     if (lane === undefined) return;
-    const kind = this.pickObstacleType();
-    const texture = this.getObstacleTexture(kind);
-    const obstacle = this.add.image(LANES[lane], -70, texture) as RunnerSprite;
+    const obstacleRecipe = pickWeightedObstacle(recipe.obstacles, this.distance);
+    if (!obstacleRecipe) return;
+    const obstacle = this.add.image(this.getLaneX(lane), -70, obstacleRecipe.asset) as RunnerSprite;
     obstacle.laneIndex = lane;
-    obstacle.kind = kind;
+    obstacle.kind = obstacleRecipe.id;
     obstacle.setDepth(DEPTHS.obstacles);
-    obstacle.setScale(kind === 'dog' ? 0.88 : kind === 'vacuum' ? 0.78 : kind === 'jelly-crown' ? 1 : 0.92);
-    obstacle.setData('hitRadiusX', kind === 'dog' ? 55 : kind === 'vacuum' ? 62 : kind === 'jelly-crown' ? 46 : 48);
-    obstacle.setData('hitRadiusY', kind === 'dog' ? 45 : kind === 'vacuum' ? 48 : kind === 'jelly-crown' ? 34 : 38);
+    obstacle.setScale(obstacleRecipe.scale);
+    obstacle.setData('hitRadiusX', obstacleRecipe.hitRadiusX);
+    obstacle.setData('hitRadiusY', obstacleRecipe.hitRadiusY);
     this.obstacles.add(obstacle);
     this.nextBlockedLane = lane;
 
     this.tweens.add({
       targets: obstacle,
-      angle: kind === 'cucumber' || kind === 'foil' || kind === 'jelly-crown' ? 6 : 3,
-      duration: kind === 'cucumber' || kind === 'foil' ? 150 : 220,
+      angle: obstacleRecipe.wobbleAngle,
+      duration: obstacleRecipe.wobbleDurationMs,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
   }
 
-  private pickObstacleType(): ObstacleType {
-    const roll = Math.random();
-    if (this.selectedLevelId === 'magical-kingdom' && roll < 0.38) return 'jelly-crown';
-    if (this.distance > 2800 && roll < 0.16) return 'vacuum';
-    if (this.distance > 1500 && roll < 0.34) return 'foil';
-    return Phaser.Math.RND.pick(['dog', 'cucumber']);
-  }
-
-  private getObstacleTexture(kind: ObstacleType) {
-    if (kind === 'dog') return ASSETS.dog;
-    if (kind === 'cucumber') return ASSETS.cucumber;
-    if (kind === 'vacuum') return ASSETS.vacuum;
-    if (kind === 'jelly-crown') return ASSETS.magicKingdomJellyCrown;
-    return ASSETS.foil;
-  }
-
   private spawnDueYarn() {
-    const level = this.getSelectedLevel();
-    while (this.yarnSpawnIndex < level.maxYarn && this.distance >= this.getYarnSpawnDistance(this.yarnSpawnIndex, level.maxYarn)) {
+    const recipe = this.getRunRecipe();
+    while (this.yarnSpawnIndex < recipe.maxYarn && this.distance >= this.getYarnSpawnDistance(this.yarnSpawnIndex, recipe)) {
       if (!this.spawnYarn()) return;
       this.yarnSpawnIndex += 1;
     }
@@ -1827,19 +1809,20 @@ export class RunScene extends BaseScene {
 
   private spawnFarmYarnRows() {
     while (this.yarnScore < FARM_YARN_GOAL && this.distance >= FARM_YARN_FIRST_ROW_DISTANCE + this.farmYarnRowIndex * FARM_YARN_ROW_SPACING) {
-      LANES.forEach((_x, lane) => this.spawnYarnInLane(lane, -50));
+      this.getLaneIndexes().forEach((lane) => this.spawnYarnInLane(lane, -50));
       this.farmYarnRowIndex += 1;
     }
   }
 
-  private getYarnSpawnDistance(index: number, maxYarn: number) {
-    const usableDistance = FINISH_DISTANCE - YARN_START_DISTANCE - YARN_FINISH_PADDING;
-    if (maxYarn <= 1) return YARN_START_DISTANCE;
-    return YARN_START_DISTANCE + (usableDistance * index) / (maxYarn - 1);
+  private getYarnSpawnDistance(index: number, recipe: RunLevelRecipe) {
+    const usableDistance = recipe.finishDistance - recipe.yarnStartDistance - recipe.yarnFinishPadding;
+    if (recipe.maxYarn <= 1) return recipe.yarnStartDistance;
+    return recipe.yarnStartDistance + (usableDistance * index) / (recipe.maxYarn - 1);
   }
 
   private spawnYarn() {
-    if (this.distance > FINISH_DISTANCE - YARN_FINISH_PADDING) return false;
+    const recipe = this.getRunRecipe();
+    if (this.distance > recipe.finishDistance - recipe.yarnFinishPadding) return false;
     const lane = this.pickSafeLane(this.yarns, this.obstacles, -50, false);
     if (lane === undefined) return false;
     this.spawnYarnInLane(lane, -50);
@@ -1847,8 +1830,8 @@ export class RunScene extends BaseScene {
   }
 
   private spawnYarnInLane(lane: number, y: number) {
-    const texture = Phaser.Math.RND.pick([ASSETS.yarnPink, ASSETS.yarnBlue, ASSETS.yarnPurple]);
-    const yarn = this.add.image(LANES[lane], y, texture) as RunnerSprite;
+    const texture = Phaser.Math.RND.pick(this.getRunRecipe().pickupAssets);
+    const yarn = this.add.image(this.getLaneX(lane), y, texture) as RunnerSprite;
     yarn.laneIndex = lane;
     yarn.kind = 'yarn';
     yarn.setDepth(DEPTHS.pickups).setScale(0.88);
@@ -1869,15 +1852,15 @@ export class RunScene extends BaseScene {
     spawnY: number,
     avoidLastObstacle: boolean
   ) {
-    let lanes = [0, 1, 2];
+    let lanes = this.getLaneIndexes();
     if (avoidLastObstacle && this.nextBlockedLane !== undefined) {
       Phaser.Utils.Array.Remove(lanes, this.nextBlockedLane);
     }
 
     lanes = lanes.filter((lane) => {
       return (
-        !this.hasNearbyRunnerInLane(blockingGroup, lane, spawnY, SPAWN_CLEARANCE_Y) &&
-        !this.hasNearbyRunnerInLane(sameKindGroup, lane, spawnY, SPAWN_CLEARANCE_Y * 0.6)
+        !this.hasNearbyRunnerInLane(blockingGroup, lane, spawnY, this.getRunRecipe().spawnClearanceY) &&
+        !this.hasNearbyRunnerInLane(sameKindGroup, lane, spawnY, this.getRunRecipe().spawnClearanceY * 0.6)
       );
     });
 
@@ -1951,7 +1934,7 @@ export class RunScene extends BaseScene {
       ease: 'Sine.easeInOut',
       onComplete: () => {
         this.cat.angle = 0;
-        this.cat.x = LANES[this.currentLane];
+        this.cat.x = this.getLaneX(this.currentLane);
         this.cat.setTexture(this.getSelectedCosmetic().run1);
         if (this.phase === 'playing') {
           this.startCatBob();
@@ -1974,9 +1957,9 @@ export class RunScene extends BaseScene {
     this.emitter.explode(16, this.cat.x, this.cat.y - 18);
     this.floatText('Tinfoil!', this.cat.x, this.cat.y - 54, '#fff2a1');
     this.distance = Math.max(0, this.distance - 260);
-    const possibleLanes = [0, 1, 2].filter((lane) => lane !== this.currentLane);
+    const possibleLanes = this.getLaneIndexes().filter((lane) => lane !== this.currentLane);
     this.currentLane = Phaser.Math.RND.pick(possibleLanes);
-    const targetX = LANES[this.currentLane];
+    const targetX = this.getLaneX(this.currentLane);
     this.tweens.killTweensOf(this.cat);
     this.cat.setTexture(this.getSelectedCosmetic().hit);
     this.tweens.add({
@@ -2025,9 +2008,9 @@ export class RunScene extends BaseScene {
       duration: 330,
       ease: 'Sine.easeIn',
       onComplete: () => {
-        const possibleLanes = [0, 1, 2].filter((lane) => lane !== this.currentLane);
+        const possibleLanes = this.getLaneIndexes().filter((lane) => lane !== this.currentLane);
         this.currentLane = Phaser.Math.RND.pick(possibleLanes);
-        this.cat.setPosition(LANES[this.currentLane], CAT_Y - 70).setScale(1.25).setAlpha(1).setAngle(-18);
+        this.cat.setPosition(this.getLaneX(this.currentLane), CAT_Y - 70).setScale(1.25).setAlpha(1).setAngle(-18);
         this.cat.setTexture(this.getSelectedCosmetic().hit);
         this.hasCrazyHair = true;
         this.crazyHair.setVisible(true);
@@ -2102,12 +2085,12 @@ export class RunScene extends BaseScene {
 
   private moveLane(direction: number) {
     if (this.phase !== 'playing' || this.controlsLocked) return;
-    const nextLane = Phaser.Math.Clamp(this.currentLane + direction, 0, LANES.length - 1);
+    const nextLane = Phaser.Math.Clamp(this.currentLane + direction, 0, this.getLaneLayout().lanes.length - 1);
     if (nextLane === this.currentLane) return;
     this.currentLane = nextLane;
     this.tweens.add({
       targets: this.cat,
-      x: LANES[this.currentLane],
+      x: this.getLaneX(this.currentLane),
       duration: 130,
       ease: 'Back.easeOut'
     });
@@ -2219,7 +2202,7 @@ export class RunScene extends BaseScene {
   }
 
   private updateFinish() {
-    const finishY = CAT_Y - (FINISH_DISTANCE - this.distance);
+    const finishY = CAT_Y - (this.getRunRecipe().finishDistance - this.distance);
     this.finishLine.y = finishY;
     this.milkBottle.y = finishY - 120;
   }
@@ -2383,7 +2366,7 @@ export class RunScene extends BaseScene {
     );
     const progress = this.isFarmForYarn()
       ? Phaser.Math.Clamp(this.yarnScore / FARM_YARN_GOAL, 0, 1)
-      : Phaser.Math.Clamp(this.distance / FINISH_DISTANCE, 0, 1);
+      : Phaser.Math.Clamp(this.distance / this.getRunRecipe().finishDistance, 0, 1);
     this.displayedProgress += (progress - this.displayedProgress) * 0.18;
     if (Math.abs(progress - this.displayedProgress) < 0.002) this.displayedProgress = progress;
     this.drawProgressBar(this.displayedProgress);
@@ -2464,17 +2447,47 @@ export class RunScene extends BaseScene {
     return LEVELS.find((level) => level.id === this.selectedLevelId) ?? LEVELS[0];
   }
 
+  private getCurrentRunConfig() {
+    const nodeId = this.getSelectedMapNode().id;
+    if (!this.cachedRunConfig || this.cachedRunConfigNodeId !== nodeId) {
+      this.cachedRunConfig = buildRunConfig(nodeId);
+      this.cachedRunConfigNodeId = nodeId;
+    }
+    return this.cachedRunConfig;
+  }
+
+  private getRunRecipe() {
+    return this.getCurrentRunConfig().recipe;
+  }
+
+  private getLaneLayout(): LaneLayout {
+    return this.getCurrentRunConfig().laneLayout;
+  }
+
+  private getLaneIndexes() {
+    return this.getLaneLayout().lanes.map((_laneX, index) => index);
+  }
+
+  private getLaneX(laneIndex: number) {
+    const lanes = this.getLaneLayout().lanes;
+    return lanes[Phaser.Math.Clamp(laneIndex, 0, lanes.length - 1)];
+  }
+
+  private getStartingLaneIndex() {
+    return Math.floor((this.getLaneLayout().lanes.length - 1) / 2);
+  }
+
   private isFarmForYarn() {
     return this.runMode === 'farm-for-yarn';
   }
 
   private getStartingSpeed() {
-    const world = WORLDS.find((candidate) => candidate.themeKey === this.selectedLevelId) ?? WORLDS[0];
-    return INITIAL_SPEED * this.speedMultiplier * world.difficultyProfile.speedMultiplier;
+    const recipe = this.getRunRecipe();
+    return recipe.baseSpeed * this.speedMultiplier * recipe.speedMultiplier;
   }
 
   private getMaxSpeed() {
-    return MAX_SPEED * this.speedMultiplier;
+    return this.getRunRecipe().maxSpeed * this.speedMultiplier;
   }
 
   protected override textStyle(fontSize: number, color: string): Phaser.Types.GameObjects.Text.TextStyle {
