@@ -9,6 +9,7 @@ type MapNodeButton = {
   node: MapNode;
   container: Phaser.GameObjects.Container;
   background: Phaser.GameObjects.Graphics;
+  paw: Phaser.GameObjects.Graphics;
   rating: Phaser.GameObjects.Graphics;
   labelText: Phaser.GameObjects.Text;
 };
@@ -16,6 +17,11 @@ type MapNodeButton = {
 type MapPoint = {
   x: number;
   y: number;
+};
+
+type RouteSegment = {
+  from: MapNode;
+  to: MapNode;
 };
 
 export type MilkMapRendererConfig = {
@@ -28,6 +34,7 @@ export type MilkMapRendererConfig = {
   getSelectedCosmetic: () => CosmeticOption;
   getSelectedMapNode: () => MapNode;
   getSelectedMapNodeId: () => string;
+  getCurrentMapCatNode: () => MapNode;
   getTotalMilk: () => number;
   getMapMilkGoal: () => number;
   getBottlesForNode: (nodeId: string) => number;
@@ -43,6 +50,11 @@ export type MilkMapRendererConfig = {
   showLaunch: () => void;
 };
 
+export type MapUnlockCelebration = {
+  fromNodeId: string;
+  toNodeId: string;
+};
+
 export class MilkMapRenderer {
   readonly elements: VisibleGameObject[] = [];
   private readonly mapCardElements: VisibleGameObject[] = [];
@@ -52,6 +64,7 @@ export class MilkMapRenderer {
   private mapCatAvatarNodeId?: string;
   private milkBottleCharacter?: Phaser.GameObjects.Graphics;
   private milkTotalText?: Phaser.GameObjects.Text;
+  private pendingCelebration?: MapUnlockCelebration;
 
   constructor(private readonly config: MilkMapRendererConfig) {}
 
@@ -64,15 +77,19 @@ export class MilkMapRenderer {
 
     this.createAtlasPage();
     this.milkBottleCharacter = this.config.scene.add.graphics();
-    this.milkTotalText = this.config.scene.add.text(348, -176, '', this.config.textStyle(12, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 4);
+    this.milkTotalText = this.config.scene.add.text(386, -146, '', this.config.textStyle(12, '#fffad0')).setOrigin(0.5).setStroke('#17347e', 4);
     this.addElement(this.milkBottleCharacter);
     this.addElement(this.milkTotalText);
-    this.mapCatAvatar = this.config.scene.add.image(0, 0, cosmetic.run1).setScale(0.26);
+    this.mapCatAvatar = this.config.scene.add.image(0, 0, cosmetic.run1);
     this.addElement(this.mapCatAvatar);
     this.createPreviewCard();
     this.addElement(this.config.createOverlayButton(322, 220, 112, 36, 'Shop', 0xffd166, this.config.showShop));
     this.addElement(this.config.createOverlayButton(322, 176, 112, 36, 'Back', 0xff7aa8, this.config.showLaunch));
     this.update();
+  }
+
+  setPendingCelebration(celebration: MapUnlockCelebration | undefined) {
+    this.pendingCelebration = celebration;
   }
 
   createAtlasPage() {
@@ -98,40 +115,107 @@ export class MilkMapRenderer {
       if (role === 'mapCardTitle') {
         (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
       } else if (role === 'mapCardBody') {
-        (element as Phaser.GameObjects.Text).setText(this.config.getMapCardBody(selectedNode));
+        (element as Phaser.GameObjects.Text).setText(this.getUnifiedMapCardBody(selectedNode));
       } else if (role === 'mapPlayButton') {
         element.setVisible(this.config.getOverlayMode() === 'map' && this.config.isMapNodePlayable(selectedNode));
       }
     }
 
     if (this.mapCatAvatar) {
+      this.config.overlay.bringToTop(this.mapCatAvatar);
       const cosmetic = this.config.getSelectedCosmetic();
-      const target = this.getNodePoint(selectedNode);
-      const targetY = target.y - 30;
+      const avatarNode = this.config.getCurrentMapCatNode();
+      const avatarIsOnVisibleWorld = avatarNode.worldId === this.getActiveWorld().id;
+      const target = this.getNodePoint(avatarNode);
+      const targetY = target.y;
+      const avatarScale = this.getCatIconScale(cosmetic, 1.12);
       this.mapCatAvatar
         .setTexture(cosmetic.run1)
-        .setScale(cosmetic.style === 'nyan' ? 0.24 : 0.26)
-        .setVisible(this.config.getOverlayMode() === 'map' && this.config.isMapNodePlayable(selectedNode));
-      if (!this.mapCatAvatarNodeId) {
-        this.mapCatAvatar.setPosition(target.x, targetY);
-      } else if (this.mapCatAvatarNodeId !== selectedNode.id) {
+        .setScale(avatarScale)
+        .clearTint()
+        .setAlpha(1)
+        .setVisible(this.config.getOverlayMode() === 'map' && avatarIsOnVisibleWorld && this.config.isMapNodePlayable(avatarNode));
+      const celebration = this.pendingCelebration;
+      this.pendingCelebration = undefined;
+      if (!avatarIsOnVisibleWorld) {
         this.config.scene.tweens.killTweensOf(this.mapCatAvatar);
-        this.config.scene.tweens.add({
-          targets: this.mapCatAvatar,
-          x: target.x,
-          y: targetY,
-          scale: cosmetic.style === 'nyan' ? 0.28 : 0.3,
-          duration: 420,
-          yoyo: true,
-          ease: 'Sine.easeInOut'
-        });
+      } else if (celebration?.toNodeId === avatarNode.id) {
+        const fromNode = getMapNodeById(celebration.fromNodeId);
+        const start = fromNode ? this.getNodePoint(fromNode) : target;
+        this.mapCatAvatar.setPosition(start.x, start.y).setAngle(0);
+        this.animateMapCatTo(avatarNode, target, avatarScale, cosmetic, true);
+      } else if (!this.mapCatAvatarNodeId) {
+        this.mapCatAvatar.setPosition(target.x, targetY).setAngle(0);
+      } else if (this.mapCatAvatarNodeId !== avatarNode.id) {
+        this.animateMapCatTo(avatarNode, target, avatarScale, cosmetic, false);
       }
-      this.mapCatAvatarNodeId = selectedNode.id;
+      this.mapCatAvatarNodeId = avatarNode.id;
     }
 
     for (const button of this.mapNodeButtons) {
       this.drawNodeButton(button);
     }
+  }
+
+  private animateMapCatTo(targetNode: MapNode, target: MapPoint, avatarScale: number, cosmetic: CosmeticOption, celebrate: boolean) {
+    if (!this.mapCatAvatar) return;
+    this.config.scene.tweens.killTweensOf(this.mapCatAvatar);
+    const fromNode = this.mapCatAvatarNodeId ? getMapNodeById(this.mapCatAvatarNodeId) : undefined;
+    const route = fromNode ? this.getRouteSegments(fromNode, targetNode) : [];
+    if (route.length > 0) {
+      this.animateMapCatAlongRoute(route, targetNode, avatarScale, cosmetic, celebrate);
+      return;
+    }
+    this.config.scene.tweens.add({
+      targets: this.mapCatAvatar,
+      x: target.x,
+      y: target.y,
+      scale: avatarScale * 1.04,
+      angle: target.x >= this.mapCatAvatar.x ? 4 : -4,
+      duration: celebrate ? 760 : 560,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        this.mapCatAvatar?.setTexture(tween.totalProgress % 0.28 < 0.14 ? cosmetic.run2 : cosmetic.run1);
+      },
+      onComplete: () => {
+        this.mapCatAvatar?.setTexture(cosmetic.run1).setPosition(target.x, target.y).setScale(avatarScale).setAngle(0);
+        if (celebrate) this.playUnlockCelebration(target);
+      }
+    });
+  }
+
+  private animateMapCatAlongRoute(route: RouteSegment[], targetNode: MapNode, avatarScale: number, cosmetic: CosmeticOption, celebrate: boolean) {
+    if (!this.mapCatAvatar) return;
+    const runSegment = (index: number) => {
+      if (!this.mapCatAvatar) return;
+      const segment = route[index];
+      if (!segment) {
+        const target = this.getNodePoint(targetNode);
+        this.mapCatAvatar.setTexture(cosmetic.run1).setPosition(target.x, target.y).setScale(avatarScale).setAngle(0);
+        if (celebrate) this.playUnlockCelebration(target);
+        return;
+      }
+      const start = this.getNodePoint(segment.from);
+      const end = this.getNodePoint(segment.to);
+      const control = this.getControlPoint(start, end, this.getRouteIndex(segment.from, segment.to), segment.from.nodeType === 'bonus' || segment.to.nodeType === 'bonus');
+      const progress = { value: 0 };
+      this.config.scene.tweens.add({
+        targets: progress,
+        value: 1,
+        duration: Math.max(260, Math.round(680 / route.length)),
+        ease: 'Sine.easeInOut',
+        onUpdate: (tween) => {
+          const point = this.quadraticPoint(start, control, end, progress.value);
+          this.mapCatAvatar
+            ?.setPosition(point.x, point.y)
+            .setScale(avatarScale * 1.04)
+            .setAngle(end.x >= start.x ? 4 : -4)
+            .setTexture(tween.totalProgress % 0.28 < 0.14 ? cosmetic.run2 : cosmetic.run1);
+        },
+        onComplete: () => runSegment(index + 1)
+      });
+    };
+    runSegment(0);
   }
 
   private addElement<T extends VisibleGameObject>(element: T) {
@@ -159,10 +243,6 @@ export class MilkMapRenderer {
     const worldIndex = WORLDS.findIndex((candidate) => candidate.id === world.id);
     const previousWorld = WORLDS[worldIndex - 1];
     const nextWorld = WORLDS[worldIndex + 1];
-    const activeNodes = this.getWorldNodeList(world.id);
-    const earnedInWorld = activeNodes.reduce((total, node) => total + this.config.getBottlesForNode(node.id), 0);
-    const possibleInWorld = activeNodes.filter((node) => node.nodeType !== 'gate').length * 3;
-
     const band = this.config.scene.add.graphics();
     const background = Phaser.Display.Color.HexStringToColor(world.palette.background).color;
     band.fillStyle(background, 0.98);
@@ -184,44 +264,30 @@ export class MilkMapRenderer {
     this.addAtlasElement(band);
     this.createScenicProps(world.id);
 
-    this.addAtlasElement(this.config.scene.add.text(-340, -151, world.atlasLabel, { ...this.config.textStyle(11, '#17347e'), align: 'left' }).setOrigin(0, 0.5));
     this.addAtlasElement(
       this.config.scene.add
-        .text(-340, -132, world.displayName, { ...this.config.textStyle(14, '#ffffff'), align: 'left', wordWrap: { width: 220 } })
+        .text(-340, -142, world.displayName, { ...this.config.textStyle(15, '#ffffff'), align: 'left', wordWrap: { width: 260 } })
         .setOrigin(0, 0.5)
         .setStroke('#17347e', 4)
+        .setResolution(2)
     );
-    this.addAtlasElement(
-      this.config.scene.add
-        .text(0, 113, `${world.mapSkin.pathName} - ${earnedInWorld}/${possibleInWorld} milk here`, {
-          ...this.config.textStyle(12, '#17347e'),
-          align: 'center',
-          wordWrap: { width: 420 }
-        })
-        .setOrigin(0.5)
-    );
-
     if (previousWorld) {
       this.createWorldPeek(-408, -12, previousWorld.shortName, 'Prev', false, () =>
-        this.config.selectMapNode(this.getWorldNodeList(previousWorld.id)[0]?.id ?? this.config.getSelectedMapNodeId())
+        this.config.selectMapNode(this.getWorldInitialSelectionNodeId(previousWorld.id))
       );
     }
     if (nextWorld) {
       this.createWorldPeek(408, -12, nextWorld.shortName, 'Next', true, () =>
-        this.config.selectMapNode(this.getWorldNodeList(nextWorld.id)[0]?.id ?? this.config.getSelectedMapNodeId())
+        this.config.selectMapNode(this.getWorldInitialSelectionNodeId(nextWorld.id))
       );
     }
 
-    this.addAtlasElement(
-      this.config.scene.add
-      .text(0, 134, nextWorld ? `Next: ${nextWorld.displayName}` : 'Atlas edge: more worlds can grow beyond this page.', {
-          ...this.config.textStyle(11, '#fffad0'),
-          align: 'center',
-          wordWrap: { width: 420 }
-        })
-        .setOrigin(0.5)
-        .setStroke('#17347e', 3)
-    );
+  }
+
+  private getWorldInitialSelectionNodeId(worldId: string) {
+    const catNode = this.config.getCurrentMapCatNode();
+    if (catNode.worldId === worldId) return catNode.id;
+    return this.getWorldNodeList(worldId).find((node) => node.nodeType === 'main')?.id ?? this.config.getSelectedMapNodeId();
   }
 
   private createWorldPeek(x: number, y: number, label: string, eyebrow: string, pointsRight: boolean, onClick: () => void) {
@@ -264,6 +330,7 @@ export class MilkMapRenderer {
     const activeWorldId = this.getActiveWorld().id;
     const activeNodes = this.getWorldNodeList(activeWorldId);
     activeNodes.forEach((to, index) => {
+      if (to.nodeType === 'gate') return;
       const previousNodeId = to.unlock.previousNodeId;
       const previousNode = previousNodeId ? getMapNodeById(previousNodeId) : undefined;
       if (!previousNode || previousNode.nodeType === 'gate') return;
@@ -275,20 +342,23 @@ export class MilkMapRenderer {
 
   private createNodes() {
     this.getWorldNodeList(this.getActiveWorld().id).forEach((node) => {
+      if (node.nodeType === 'gate') return;
       const world = getWorldForNode(node);
       const point = this.getNodePoint(node);
       const container = this.config.scene.add.container(point.x, point.y);
       const background = this.config.scene.add.graphics();
+      const paw = this.config.scene.add.graphics();
       const rating = this.config.scene.add.graphics();
       const labelText = this.config.scene.add
-        .text(0, node.nodeType === 'gate' ? 35 : 38, node.nodeType === 'bonus' ? 'BONUS' : node.nodeType === 'gate' ? 'GATE' : node.id.slice(-2), {
+        .text(0, node.nodeType === 'bonus' ? 38 : 38, this.getNodeLabel(node), {
           ...this.config.textStyle(10, '#ffffff'),
           align: 'center'
         })
         .setOrigin(0.5)
-        .setStroke('#17347e', 3);
-      const clickZone = this.config.scene.add.zone(0, 0, node.nodeType === 'gate' ? 76 : 58, node.nodeType === 'gate' ? 58 : 70).setInteractive();
-      container.add([background, rating, labelText, clickZone]);
+        .setStroke('#17347e', 3)
+        .setResolution(2);
+      const clickZone = this.config.scene.add.zone(0, 0, 58, 70).setInteractive();
+      container.add([background, paw, rating, labelText, clickZone]);
       clickZone.on('pointerup', () => {
         if (this.config.isPointerHandled() || this.config.scene.time.now < this.config.getMapInputReadyAt()) return;
         this.config.selectMapNode(node.id);
@@ -297,21 +367,21 @@ export class MilkMapRenderer {
       clickZone.on('pointerout', () => this.config.scene.tweens.add({ targets: container, scale: 1, duration: 90, ease: 'Sine.easeOut' }));
       container.setData('worldAccent', world.palette.accent);
       this.addAtlasElement(container);
-      this.mapNodeButtons.push({ node, container, background, rating, labelText });
+      this.mapNodeButtons.push({ node, container, background, paw, rating, labelText });
     });
   }
 
   private createPreviewCard() {
     const card = this.config.scene.add.graphics();
     card.fillStyle(0x17347e, 0.92);
-    card.fillRoundedRect(-382, 154, 580, 82, 18);
+    card.fillRoundedRect(-382, 144, 580, 102, 18);
     card.lineStyle(4, 0xffffff, 0.82);
-    card.strokeRoundedRect(-382, 154, 580, 82, 18);
-    const title = this.config.scene.add.text(-356, 168, '', this.config.textStyle(21, '#fffad0')).setStroke('#17347e', 5);
+    card.strokeRoundedRect(-382, 144, 580, 102, 18);
+    const title = this.config.scene.add.text(-356, 156, '', this.config.textStyle(20, '#fffad0')).setStroke('#17347e', 5).setResolution(2);
     title.setData('role', 'mapCardTitle');
-    const body = this.config.scene.add.text(-356, 197, '', { ...this.config.textStyle(12, '#dff7ff'), wordWrap: { width: 526 }, lineSpacing: 1 }).setStroke('#17347e', 3);
+    const body = this.config.scene.add.text(-356, 184, '', { ...this.config.textStyle(11, '#dff7ff'), wordWrap: { width: 450 }, lineSpacing: 0 }).setStroke('#17347e', 3).setResolution(2);
     body.setData('role', 'mapCardBody');
-    const playButton = this.config.createOverlayButton(126, 194, 118, 44, 'Play', 0x53d36d, this.config.startGame);
+    const playButton = this.config.createOverlayButton(126, 195, 118, 44, 'Play', 0x53d36d, this.config.startGame);
     playButton.setData('role', 'mapPlayButton');
     [card, title, body, playButton].forEach((element) => {
       this.addElement(element);
@@ -320,7 +390,7 @@ export class MilkMapRenderer {
   }
 
   private drawNodeButton(button: MapNodeButton) {
-    const { node, background, rating } = button;
+    const { node, background, paw, rating } = button;
     const world = getWorldForNode(node);
     const selected = node.id === this.config.getSelectedMapNodeId();
     const bottles = this.config.getBottlesForNode(node.id);
@@ -328,44 +398,22 @@ export class MilkMapRenderer {
     const playable = this.config.isMapNodePlayable(node);
 
     background.clear();
+    paw.clear();
     const alpha = unlocked ? 1 : 0.42;
     background.fillStyle(0x17347e, unlocked ? 0.24 : 0.16);
-    if (node.nodeType === 'gate') {
-      background.fillRoundedRect(-40, -20, 80, 50, 12);
-      background.fillStyle(playable ? 0x53d36d : 0x6b5b55, alpha);
-      background.fillRoundedRect(-34, -30, 68, 56, 12);
-      background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : 0xffffff, selected ? 1 : 0.72);
-      background.strokeRoundedRect(-34, -30, 68, 56, 12);
-      background.fillStyle(0x17347e, 0.22);
-      background.fillRect(-22, -10, 44, 8);
-      background.fillRect(-22, 5, 44, 8);
-      background.fillStyle(playable ? 0xfff06a : 0x2b1c19, 0.95);
-      background.fillTriangle(-8, -6, 16, 0, -8, 6);
-    } else {
-      const radius = node.nodeType === 'bonus' ? 28 : 25;
-      background.fillRoundedRect(-radius - 8, -radius + 8, (radius + 8) * 2, 20, 10);
-      background.fillStyle(node.nodeType === 'bonus' ? 0xffd166 : world.palette.node, alpha);
-      background.fillCircle(0, 0, radius);
-      background.fillStyle(0xffffff, unlocked ? 0.34 : 0.16);
-      background.fillCircle(-8, -10, radius * 0.44);
-      background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : world.palette.pathEdge, selected ? 1 : 0.88);
-      background.strokeCircle(0, 0, radius);
-      if (!playable && bottles === 0) {
-        background.fillStyle(0x17347e, 0.82);
-        background.fillRoundedRect(-10, -4, 20, 16, 5);
-        background.fillCircle(0, -7, 8);
-      } else if (selected) {
-        background.fillStyle(0xff7aa8, 0.95);
-        background.fillCircle(-6, -8, 5);
-        background.fillCircle(7, -8, 5);
-        background.fillCircle(0, 3, 7);
-      } else if (bottles > 0) {
-        background.fillStyle(0xbfefff, 0.92);
-        background.fillRect(-5, -10, 10, 18);
-        background.fillStyle(0xffffff, 0.88);
-        background.fillRect(-3, -14, 6, 5);
-      }
-    }
+    const radius = node.nodeType === 'bonus' ? 28 : 25;
+    background.fillStyle(node.nodeType === 'bonus' ? 0xffd166 : world.palette.node, alpha);
+    background.fillCircle(0, 0, radius);
+    background.fillStyle(0xffffff, unlocked ? 0.34 : 0.16);
+    background.fillCircle(-8, -10, radius * 0.44);
+    background.lineStyle(selected ? 6 : 4, selected ? 0xfff06a : world.palette.pathEdge, selected ? 1 : 0.88);
+    background.strokeCircle(0, 0, radius);
+    this.drawNodePaw(paw, world.palette.accent, {
+      visible: !selected || !playable,
+      completed: bottles > 0,
+      faded: bottles === 0,
+      bonus: node.nodeType === 'bonus'
+    });
 
     rating.clear();
     if (bottles > 0 && node.nodeType !== 'gate') {
@@ -378,6 +426,135 @@ export class MilkMapRenderer {
     }
 
     button.labelText.setColor(unlocked ? '#ffffff' : '#b9c5d6');
+  }
+
+  private drawNodePaw(
+    graphics: Phaser.GameObjects.Graphics,
+    accent: number,
+    state: { visible: boolean; completed: boolean; faded: boolean; bonus: boolean }
+  ) {
+    if (!state.visible) return;
+    const fill = state.completed ? accent : 0xffffff;
+    const outline = state.completed ? 0x17347e : accent;
+    const alpha = state.faded ? 0.92 : 0.96;
+    const scale = (state.bonus ? 1.08 : 1) * 0.8;
+
+    graphics.lineStyle(3, outline, state.faded ? 0.28 : 0.72);
+    graphics.fillStyle(fill, alpha);
+    graphics.fillEllipse(0, 8 * scale, 22 * scale, 17 * scale);
+    graphics.strokeEllipse(0, 8 * scale, 22 * scale, 17 * scale);
+    [
+      { x: -15, y: -5, r: 5.3 },
+      { x: -6, y: -13, r: 5.1 },
+      { x: 5, y: -13, r: 5.1 },
+      { x: 15, y: -5, r: 5.3 }
+    ].forEach((toe) => {
+      graphics.fillCircle(toe.x * scale, toe.y * scale, toe.r * scale);
+      graphics.strokeCircle(toe.x * scale, toe.y * scale, toe.r * scale);
+    });
+  }
+
+  private getCatIconScale(cosmetic: CosmeticOption, multiplier = 1) {
+    return (cosmetic.style === 'nyan' ? 0.42 : 0.52) * multiplier;
+  }
+
+  private getUnifiedMapCardBody(node: MapNode) {
+    const world = getWorldForNode(node);
+    const activeNodes = this.getWorldNodeList(world.id);
+    const earnedInWorld = activeNodes.reduce((total, candidate) => total + this.config.getBottlesForNode(candidate.id), 0);
+    const possibleInWorld = activeNodes.filter((candidate) => candidate.nodeType !== 'gate').length * 3;
+    const bottles = this.config.getBottlesForNode(node.id);
+    const bestText = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
+    return [
+      `${world.displayName} | ${world.mapSkin.pathName} | ${earnedInWorld}/${possibleInWorld} milk here`,
+      `Best: ${bestText}`,
+      node.flavor
+    ].join('\n');
+  }
+
+  private getNodeLabel(node: MapNode) {
+    if (node.nodeType === 'bonus') return 'BONUS';
+    const worldIndex = Math.max(0, WORLDS.findIndex((world) => world.id === node.worldId));
+    const worldMainNodes = this.getWorldNodeList(node.worldId).filter((candidate) => candidate.nodeType === 'main');
+    const localIndex = Math.max(0, worldMainNodes.findIndex((candidate) => candidate.id === node.id));
+    return String(worldIndex * 8 + localIndex + 1);
+  }
+
+  private getRouteSegments(fromNode: MapNode, toNode: MapNode): RouteSegment[] {
+    if (fromNode.id === toNode.id || fromNode.worldId !== toNode.worldId) return [];
+    const nodes = this.getWorldNodeList(fromNode.worldId).filter((node) => node.nodeType !== 'gate');
+    const edges = nodes.flatMap((node) => {
+      const previous = node.unlock.previousNodeId ? nodes.find((candidate) => candidate.id === node.unlock.previousNodeId) : undefined;
+      return previous ? [{ from: previous, to: node }] : [];
+    });
+    const queue: Array<{ node: MapNode; route: RouteSegment[] }> = [{ node: fromNode, route: [] }];
+    const visited = new Set<string>([fromNode.id]);
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) break;
+      if (current.node.id === toNode.id) return current.route;
+      for (const edge of edges) {
+        const next =
+          edge.from.id === current.node.id
+            ? { node: edge.to, segment: edge }
+            : edge.to.id === current.node.id
+              ? { node: edge.from, segment: { from: edge.to, to: edge.from } }
+              : undefined;
+        if (!next || visited.has(next.node.id)) continue;
+        visited.add(next.node.id);
+        queue.push({ node: next.node, route: [...current.route, next.segment] });
+      }
+    }
+
+    return [];
+  }
+
+  private getRouteIndex(from: MapNode, to: MapNode) {
+    const routeTarget = to.unlock.previousNodeId === from.id ? to : from.unlock.previousNodeId === to.id ? from : to;
+    return Math.max(0, this.getWorldNodeList(routeTarget.worldId).findIndex((node) => node.id === routeTarget.id));
+  }
+
+  private playUnlockCelebration(point: MapPoint) {
+    const burstCount = Phaser.Math.Between(12, 18);
+    for (let i = 0; i < burstCount; i += 1) {
+      const star = this.config.scene.add.graphics();
+      const size = Phaser.Math.Between(4, 8);
+      const angle = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+      const distance = Phaser.Math.Between(32, 74);
+      const color = Phaser.Math.RND.pick([0xfff06a, 0xff7aa8, 0xbfefff, 0xffffff, 0x53d36d]);
+      star.fillStyle(color, 1);
+      star.fillTriangle(0, -size, Math.round(size * 0.4), -Math.round(size * 0.2), size, 0);
+      star.fillTriangle(size, 0, Math.round(size * 0.4), Math.round(size * 0.2), 0, size);
+      star.fillTriangle(0, size, -Math.round(size * 0.4), Math.round(size * 0.2), -size, 0);
+      star.fillTriangle(-size, 0, -Math.round(size * 0.4), -Math.round(size * 0.2), 0, -size);
+      star.setPosition(point.x + Phaser.Math.Between(-7, 7), point.y + Phaser.Math.Between(-7, 7));
+      star.setRotation(Phaser.Math.FloatBetween(0, Math.PI));
+      this.addElement(star);
+      this.config.overlay.bringToTop(star);
+      this.config.scene.tweens.add({
+        targets: star,
+        x: point.x + Math.cos(angle) * distance,
+        y: point.y + Math.sin(angle) * distance,
+        alpha: 0,
+        rotation: star.rotation + Phaser.Math.FloatBetween(1.4, 3.8),
+        scale: Phaser.Math.FloatBetween(0.7, 1.5),
+        delay: Phaser.Math.Between(0, 120),
+        duration: Phaser.Math.Between(520, 860),
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          Phaser.Utils.Array.Remove(this.elements, star);
+          star.destroy();
+        }
+      });
+    }
+    this.config.scene.tweens.add({
+      targets: this.mapCatAvatar,
+      scale: this.mapCatAvatar ? this.mapCatAvatar.scale * 1.22 : 1,
+      duration: 150,
+      yoyo: true,
+      ease: 'Back.easeOut'
+    });
   }
 
   private getNodePoint(node: MapNode): MapPoint {
@@ -469,8 +646,8 @@ export class MilkMapRenderer {
   }
 
   private drawMilkBottleCharacter(graphics: Phaser.GameObjects.Graphics, totalMilk: number, mapMilkGoal: number) {
-    const x = 302;
-    const y = -254;
+    const x = 340;
+    const y = -231;
     const fillHeight = Math.round(Phaser.Math.Clamp(totalMilk / Math.max(1, mapMilkGoal), 0, 1) * 42);
     graphics.clear();
     graphics.fillStyle(0xff7aa8, 1);
@@ -515,18 +692,15 @@ export class MilkMapRenderer {
     if (worldId.includes('kitchen') || worldId.includes('home') || worldId.includes('hallway')) {
       this.drawMilkSplash(props, -274, -18, 0xbfefff);
       this.drawMilkSplash(props, 212, 80, 0xbfefff);
-      this.drawYarnBall(props, -94, 86, 0xff7aa8);
       this.drawTinyBowl(props, 116, -86);
       this.drawShelfCrumb(props, -228, 92);
     } else if (worldId.includes('living') || worldId.includes('bedroom')) {
       this.drawPillowHill(props, -250, 82, 0xffc6de);
-      this.drawYarnBall(props, -88, -86, 0xffd166);
       this.drawPillowHill(props, 230, -76, 0xf4f0ff);
       this.drawTinyBowl(props, 76, 96);
     } else {
       this.drawGrassPatch(props, -258, 82);
       this.drawGrassPatch(props, 214, -82);
-      this.drawYarnBall(props, -96, -92, 0xffd166);
       this.drawMilkSplash(props, 106, 86, 0xdff7ff);
       this.drawTinyBowl(props, 260, 84);
     }

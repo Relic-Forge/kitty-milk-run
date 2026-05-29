@@ -558,6 +558,7 @@ export class RunScene extends BaseScene {
       getSelectedCosmetic: () => this.getSelectedCosmetic(),
       getSelectedMapNode: () => this.getSelectedMapNode(),
       getSelectedMapNodeId: () => this.selectedMapNodeId,
+      getCurrentMapCatNode: () => ProgressService.getCurrentMapCatNode(),
       getTotalMilk: () => this.getTotalMilk(),
       getMapMilkGoal: () => this.getMapMilkGoal(),
       getBottlesForNode: (nodeId) => this.getBottlesForNode(nodeId),

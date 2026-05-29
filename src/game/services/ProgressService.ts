@@ -4,6 +4,11 @@ import { StorageService } from './StorageService';
 
 type ProgressRecord = Record<string, number>;
 
+export type PendingMapUnlock = {
+  fromNodeId: string;
+  toNodeId: string;
+};
+
 function clampBottleRating(value: number) {
   return Math.max(0, Math.min(3, value));
 }
@@ -12,6 +17,7 @@ export class ProgressService {
   private static progress: ProgressRecord = {};
   private static selectedNodeId = MAP_NODES[0].id;
   private static devTestNodeId: string | undefined;
+  private static pendingMapUnlock?: PendingMapUnlock;
 
   static load() {
     ProgressService.devTestNodeId = ProgressService.getDevTestNodeId();
@@ -51,6 +57,15 @@ export class ProgressService {
   static getCurrentRunNode() {
     const selectedNode = ProgressService.getSelectedNode();
     if (ProgressService.isNodePlayable(selectedNode)) return selectedNode;
+    const playableNodes = MAP_NODES.filter((node) => ProgressService.isNodePlayable(node));
+    const incompleteNode = [...playableNodes].reverse().find((node) => ProgressService.getBottlesForNode(node.id) < 3);
+    return incompleteNode ?? playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
+  }
+
+  static getCurrentMapCatNode() {
+    if (ProgressService.devTestNodeId) {
+      return getMapNodeById(ProgressService.devTestNodeId) ?? MAP_NODES[0];
+    }
     const playableNodes = MAP_NODES.filter((node) => ProgressService.isNodePlayable(node));
     const incompleteNode = [...playableNodes].reverse().find((node) => ProgressService.getBottlesForNode(node.id) < 3);
     return incompleteNode ?? playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
@@ -145,8 +160,18 @@ export class ProgressService {
       perfectRun || yarnScore >= node.scoreTargets.threeBottleScore ? 3 : yarnScore >= node.scoreTargets.twoBottleScore ? 2 : 1;
     const nextBottles = Math.max(ProgressService.getBottlesForNode(node.id), earnedBottles);
     ProgressService.progress[node.id] = nextBottles;
-    ProgressService.selectedNodeId = ProgressService.getNewestUnlockedNode().id;
+    const nextNodeId = ProgressService.getNewestUnlockedNode().id;
+    ProgressService.selectedNodeId = nextNodeId;
+    if (nextNodeId !== node.id) {
+      ProgressService.pendingMapUnlock = { fromNodeId: node.id, toNodeId: nextNodeId };
+    }
     ProgressService.save();
     return nextBottles;
+  }
+
+  static consumePendingMapUnlock() {
+    const pending = ProgressService.pendingMapUnlock;
+    ProgressService.pendingMapUnlock = undefined;
+    return pending;
   }
 }

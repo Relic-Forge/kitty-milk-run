@@ -29,6 +29,7 @@ export class MilkMapScene extends BaseScene {
       getSelectedCosmetic: () => CosmeticService.getSelectedCosmetic(),
       getSelectedMapNode: () => ProgressService.getSelectedNode(),
       getSelectedMapNodeId: () => ProgressService.getSelectedNodeId(),
+      getCurrentMapCatNode: () => ProgressService.getCurrentMapCatNode(),
       getTotalMilk: () => ProgressService.getTotalMilk(),
       getMapMilkGoal: () => ProgressService.getMapMilkGoal(),
       getBottlesForNode: (nodeId) => ProgressService.getBottlesForNode(nodeId),
@@ -44,6 +45,8 @@ export class MilkMapScene extends BaseScene {
       showLaunch: () => SceneRouter.launch(this)
     });
     this.mapRenderer.create();
+    this.mapRenderer.setPendingCelebration(ProgressService.consumePendingMapUnlock());
+    this.mapRenderer.update();
     buildMapViewModel();
   }
 
