@@ -2,26 +2,30 @@
 
 ## Purpose
 
-Kitty Milk Run has grown past the original prototype shape. The game is still small enough to refactor safely, but the current scene file is carrying too many responsibilities: gameplay, launch screen, Milk Map, shop, progression, storage, cosmetics, audio settings, UI drawing, and state transitions.
+Kitty Milk Run has grown past the original prototype shape. The current game works, but the code is carrying too many responsibilities in one place: gameplay, launch screen, Milk Map, shop, progression, storage, cosmetics, audio settings, UI drawing, and state transitions.
 
-This plan splits the project into scenes, data modules, UI primitives, and services without changing gameplay behavior. The goal is to make the game easier to edit, easier for Codex to reason about, and safer to scale into many worlds, levels, cultures, locations, cosmetics, and seasonal map expansions.
+This plan splits the project into scenes, data modules, reusable UI components, and services without changing gameplay behavior. The goal is to make the game easier to edit, easier for Codex to reason about, and safe to scale into many worlds, levels, locations, cultures, cosmetics, seasonal events, and future mechanics.
 
-The core rule: **do not rewrite the runner gameplay during the first refactor pass. Extract around it. Preserve behavior first, improve visuals second.**
+The main rule for this refactor:
+
+> Preserve the runner gameplay first. Extract around it. Improve visuals after the structure is stable.
 
 ---
 
-## Current State Summary
+## Current Runtime
 
-Current runtime stack:
+The game currently runs as a Phaser browser game through Vite and TypeScript.
+
+Current stack:
 
 - Vite
 - Phaser
 - TypeScript
-- Browser canvas game
-- Single primary Phaser scene: `KittyMilkRunScene`
+- Browser canvas rendering
 - Fixed game size: `960x540`
 - Phaser scale mode: `FIT`, centered
-- Local browser storage for player/shop/map state
+- One primary Phaser scene: `KittyMilkRunScene`
+- Browser `localStorage` for player state, shop state, map progress, speed, and audio settings
 
 Current architectural issue:
 
@@ -29,9 +33,9 @@ Current architectural issue:
 KittyMilkRunScene is both the game and the app shell.
 ```
 
-That file currently owns:
+The file currently owns too much:
 
-- Phaser scene lifecycle
+- scene lifecycle
 - start/home overlay
 - Milk Map overlay
 - shop overlay
@@ -50,56 +54,29 @@ That file currently owns:
 - launch screen rendering
 - button creation
 - text styling
-- pixel art helper drawing
+- pixel-art helper drawing
 
-This is workable for an MVP, but it makes UI changes feel like editing one giant blob. It also makes future world design risky because cosmetic, map, UI, and gameplay concerns are tangled together.
+This is normal for a prototype, but it is now blocking clean UI work.
 
 ---
 
-## Refactor Principles
+## Refactor Strategy
 
-### Preserve gameplay first
+Do not start with a visual redesign. Start by separating responsibilities.
 
-The existing run mechanics should not be changed during the structural refactor:
+Safe sequence:
 
-- lane movement
-- obstacle types
-- obstacle spawn timing
-- yarn collection
-- hearts/damage
-- foil scare behavior
-- vacuum behavior
-- finish line/win flow
-- loss/retry flow
-- speed multiplier behavior
-- map progress rewards
-- shop purchases/equips
+```text
+Data extraction
+→ UI primitives
+→ storage/progression/cosmetic services
+→ Milk Map renderer extraction
+→ shop renderer extraction
+→ scene split
+→ premium visual pass
+```
 
-Refactor by moving code, not redesigning mechanics.
-
-### Isolate screens as Phaser scenes
-
-This is a Phaser game, not a DOM UI app. Use Phaser scenes as the main screen-level boundary.
-
-Target screens:
-
-- `LaunchScene`
-- `MilkMapScene`
-- `ShopScene`
-- `RunScene`
-- optional `BootScene`
-
-### Move reusable UI into classes/functions
-
-Buttons, panels, counters, cards, and map nodes should not be manually redrawn in every screen. They should have small, reusable modules.
-
-### Data should describe the game
-
-Worlds, levels, cosmetics, speed options, and shop items should live in data modules. Screens should render data; they should not define large data arrays inline.
-
-### Services own persistence and cross-screen state
-
-Local storage, progression, selected cosmetic, selected node, audio settings, and equipped items should be managed outside scene files.
+The Milk Map should not become prettier while still living as hand-drawn UI inside the same giant scene. That will only make the blob larger.
 
 ---
 
@@ -131,18 +108,17 @@ src/
       storageKeys.ts
 
     services/
+      StorageService.ts
       GameStateService.ts
       ProgressService.ts
-      StorageService.ts
       CosmeticService.ts
       AudioSettingsService.ts
 
     ui/
       core/
         createTextStyle.ts
-        layout.ts
         palette.ts
-        depths.ts
+        layout.ts
         types.ts
 
       components/
@@ -158,11 +134,11 @@ src/
 
       map/
         MilkMapRenderer.ts
+        MapHeader.ts
         WorldViewport.ts
         WorldPeekCard.ts
         MapPathLayer.ts
         MapNodeView.ts
-        MapHeader.ts
         MapProgressCard.ts
 
       shop/
@@ -177,38 +153,37 @@ src/
         CatEyeTracker.ts
 ```
 
-This does not need to happen in one PR. The extraction should happen in safe passes.
+This is the target shape, not a single giant PR. Each piece should be moved in controlled passes.
 
 ---
 
-## Target Scene Responsibilities
+## Scene Responsibilities
 
 ## `BootScene`
 
-Optional but recommended.
+Optional, but recommended after the first extraction pass.
 
 Purpose:
 
 - preload shared assets
-- initialize service defaults
+- initialize persisted game state
 - apply stored audio settings
-- route to `LaunchScene`
+- route to the launch screen
 
 Responsibilities:
 
 - call `loadGameAssets(this)`
-- initialize `GameStateService`
-- initialize audio state
+- call service load methods
 - start `LaunchScene`
 
 Should not contain:
 
 - gameplay logic
-- shop drawing
-- map drawing
-- progression calculations
+- shop rendering
+- Milk Map rendering
+- progression rules
 
-Example behavior:
+Example:
 
 ```ts
 export class BootScene extends Phaser.Scene {
@@ -222,12 +197,13 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     GameStateService.load();
+    ProgressService.load();
+    CosmeticService.load();
+    AudioSettingsService.loadAndApply();
     this.scene.start('LaunchScene');
   }
 }
 ```
-
-If `BootScene` feels like too much for the first pass, assets can remain loaded in each scene temporarily. Add `BootScene` after the first successful split.
 
 ---
 
@@ -235,7 +211,7 @@ If `BootScene` feels like too much for the first pass, assets can remain loaded 
 
 Purpose:
 
-The home/start screen. This should feel like the cat's home base.
+The home/start screen. This is the cat's home base.
 
 Owns:
 
@@ -246,31 +222,32 @@ Owns:
 - Shop button
 - speed selector/dropdown
 - milk bottle total badge
-- sound/music controls if kept on home
+- sound/music controls if they remain on home
 
 Does not own:
 
-- map node rendering
+- Milk Map node rendering
 - shop card rendering
-- gameplay runner loop
 - obstacle spawning
+- collision handling
+- map unlock rules
 
 Navigation:
 
-```ts
-Start Run -> RunScene with selected/current node
+```text
+Start Run -> RunScene
 Milk Map  -> MilkMapScene
 Shop      -> ShopScene
 ```
 
-Key extraction from current file:
+Current code to extract:
 
 - `createLaunchScreen()`
 - `updateLaunchUi()`
 - `createSpeedSelector()`
-- launch milk bottle UI
-- home buttons
-- cat preview
+- home action buttons
+- selected cat preview
+- home milk bottle badge
 
 Target file:
 
@@ -278,7 +255,7 @@ Target file:
 src/game/scenes/LaunchScene.ts
 ```
 
-Launch scene should consume state through services:
+Launch should consume state through services:
 
 ```ts
 const selectedNode = ProgressService.getCurrentRunNode();
@@ -292,16 +269,16 @@ const totalMilk = ProgressService.getTotalMilk();
 
 Purpose:
 
-The premium level-select map. This is where world progression lives visually.
+The premium level-select map. This scene owns the world progression UI.
 
 Owns:
 
 - Milk Map header
 - active world viewport
-- world preview peeks
-- level nodes
-- path connections
-- selected level card
+- previous/next world preview cards
+- map paths
+- map nodes
+- selected-level card
 - Play button
 - Back button
 - Shop button
@@ -309,12 +286,12 @@ Owns:
 
 Does not own:
 
-- gameplay runner mechanics
-- shop purchase logic
-- storage implementation details
-- cosmetic purchase data
+- runner gameplay
+- shop purchase rules
+- localStorage implementation
+- cosmetic item definitions
 
-Key extraction from current file:
+Current code to extract:
 
 - `createMilkMapScreen()`
 - `createMapAtlasPage()`
@@ -334,19 +311,20 @@ Target file:
 src/game/scenes/MilkMapScene.ts
 ```
 
-Rendering should be delegated to map UI modules:
+Milk Map scene should orchestrate these renderer modules:
 
 ```text
 MilkMapScene
   -> MapHeader
-  -> WorldViewport
-  -> MapPathLayer
-  -> MapNodeView[]
-  -> WorldPeekCard[]
+  -> MilkMapRenderer
+       -> WorldViewport
+       -> MapPathLayer
+       -> MapNodeView[]
+       -> WorldPeekCard[]
   -> SelectedLevelCard
 ```
 
-The scene should orchestrate. It should not manually draw every shape inline.
+The scene should not manually draw every shape inline.
 
 ---
 
@@ -354,7 +332,7 @@ The scene should orchestrate. It should not manually draw every shape inline.
 
 Purpose:
 
-Custom Kitty Shop.
+The Custom Kitty Shop.
 
 Owns:
 
@@ -364,25 +342,26 @@ Owns:
 - scrollbar
 - category buttons
 - buy/equip interactions
-- Cat God test toggle if still needed
+- Cat God test toggle if kept
 - basket counter
 
 Does not own:
 
 - Milk Map rendering
 - gameplay loop
-- launch screen layout
+- home layout
+- world unlock logic
 
-Key extraction from current file:
+Current code to extract:
 
 - `createShopCards()`
 - `createShopSection()`
 - `createShopCard()`
 - `createShopPreview()`
 - `createShopSectionButton()`
-- shop scroll state
+- shop scrolling state
 - shop card state drawing
-- purchase/equip UI updates
+- buy/equip UI updates
 
 Target file:
 
@@ -429,33 +408,29 @@ Owns:
 
 Does not own:
 
-- launch screen
-- Milk Map screen
-- shop browsing screen
-- shop item definitions
-- world progression data definitions
+- launch screen rendering
+- Milk Map rendering
+- shop browsing
+- cosmetic data arrays
+- speed option data arrays
+- localStorage implementation details
 
-Key extraction from current file:
+Current code to preserve and move:
 
 - `createWorld()`
 - `createHud()`
 - `createPlayer()`
 - `createFinishObjects()`
 - `createParticles()`
-- `bindInput()` gameplay subset
-- `startGame()` adapted to `RunScene.create()`
-- `startCountdownSequence()`
+- gameplay input binding
+- countdown sequence
 - `scrollWorld()`
-- `spawnObstacle()`
-- `pickObstacleType()`
-- `spawnDueYarn()`
-- `spawnFarmYarnRows()`
-- `updateRunnerGroup()`
-- `hitObstacle()`
-- `collectYarn()`
-- `winGame()`
-- `loseGame()`
-- `restartGame()` as scene navigation
+- obstacle spawning
+- yarn spawning
+- collision handling
+- foil behavior
+- vacuum behavior
+- win/loss handling
 
 Target file:
 
@@ -463,7 +438,7 @@ Target file:
 src/game/scenes/RunScene.ts
 ```
 
-Run scene should receive node/world selection through scene data:
+Run scene should receive its launch data:
 
 ```ts
 this.scene.start('RunScene', {
@@ -473,133 +448,23 @@ this.scene.start('RunScene', {
 });
 ```
 
-`RunScene` should not decide which node is next unless needed after win/loss. It should ask `ProgressService`.
+`RunScene` should ask `ProgressService` to update map progress after a win.
 
 ---
 
 # Data Module Split
 
-## `worldMap.ts`
-
-Current `worldMap.ts` is already a good foundation. Keep it, but move it under `src/game/data/worldMap.ts` later.
-
-Keep these concepts:
-
-- `WorldConfig`
-- `MapNode`
-- `MechanicFlags`
-- `WORLDS`
-- `MAP_NODES`
-- `MAP_CONNECTIONS`
-- `getWorldForNode()`
-
-Add over time:
-
-```ts
-export type DistanceRing =
-  | 'home'
-  | 'around_house'
-  | 'yard_and_street'
-  | 'neighborhood'
-  | 'town'
-  | 'city'
-  | 'state_region'
-  | 'country'
-  | 'global_special'
-  | 'fantasy';
-```
-
-Add a future field to `WorldConfig`:
-
-```ts
-progressionScope: {
-  ringId: DistanceRing;
-  distanceFromHome: number;
-  locationScale: 'room' | 'house' | 'yard' | 'street' | 'neighborhood' | 'city' | 'region' | 'country' | 'fantasy';
-};
-```
-
-This supports the long-term idea: the cat starts at home and slowly travels farther away without jumping too fast to huge locations.
-
----
-
-## `cosmetics.ts`
-
-Move out of `KittyMilkRunScene`:
-
-- `CosmeticOption`
-- `NYAN_VARIATIONS`
-- `ALL_COSMETICS`
-- accessories
-- trails
-- mouse cursor options
-
-Target:
-
-```text
-src/game/data/cosmetics.ts
-```
-
-Example:
-
-```ts
-export const COSMETICS: CosmeticOption[] = [...];
-export const ACCESSORIES: AccessoryOption[] = [...];
-export const TRAILS: TrailOption[] = [...];
-export const MOUSE_OPTIONS: MouseOption[] = [...];
-```
-
----
-
-## `speedOptions.ts`
-
-Move out:
-
-- `SPEED_OPTIONS`
-- speed label helper
-
-Target:
-
-```text
-src/game/data/speedOptions.ts
-```
-
-Keep the current names:
-
-- Loaf Mode
-- Purr Trot
-- Zoomies
-- Turbo Floof
-
-Future UI can render these as a dropdown without touching game state logic.
-
----
-
-## `runLevels.ts`
-
-Move current gameplay theme level data out of scene:
-
-- `LEVELS`
-- `LevelOption`
-- selected level lookup
-
-Target:
-
-```text
-src/game/data/runLevels.ts
-```
-
-This is separate from map progression. `worldMap.ts` describes progression. `runLevels.ts` describes how gameplay is skinned/tuned for each theme.
-
----
-
 ## `storageKeys.ts`
 
-Move all local storage keys out of the scene:
+Move all storage keys out of the scene.
+
+Target:
 
 ```text
 src/game/data/storageKeys.ts
 ```
+
+Do not rename any keys during the refactor. Existing player progress must survive.
 
 Example:
 
@@ -627,20 +492,118 @@ export const STORAGE_KEYS = {
 
 ---
 
+## `cosmetics.ts`
+
+Move static cosmetic definitions out of the scene.
+
+Target:
+
+```text
+src/game/data/cosmetics.ts
+```
+
+Move:
+
+- `CosmeticOption`
+- Nyan variations
+- accessories
+- trails
+- mouse cursor options
+- default selected IDs
+
+The shop and launch screen should import this data, not define it.
+
+---
+
+## `speedOptions.ts`
+
+Move speed option definitions out of the scene.
+
+Target:
+
+```text
+src/game/data/speedOptions.ts
+```
+
+Keep current option names:
+
+- Loaf Mode
+- Purr Trot
+- Zoomies
+- Turbo Floof
+
+Future UI can render the same data as a dropdown without touching gameplay.
+
+---
+
+## `runLevels.ts`
+
+Move gameplay theme data out of the scene.
+
+Target:
+
+```text
+src/game/data/runLevels.ts
+```
+
+This is separate from `worldMap.ts`.
+
+- `worldMap.ts` describes progression and map structure.
+- `runLevels.ts` describes the runner gameplay skin/tuning for a theme.
+
+---
+
+## `worldMap.ts`
+
+The current `worldMap.ts` is a good foundation. Keep it and eventually move it under `src/game/data/worldMap.ts` if needed.
+
+Keep:
+
+- `WorldConfig`
+- `MapNode`
+- `MechanicFlags`
+- `WORLDS`
+- `MAP_NODES`
+- `MAP_CONNECTIONS`
+- `getWorldForNode()`
+
+Recommended future additions:
+
+```ts
+export type DistanceRing =
+  | 'home'
+  | 'around_house'
+  | 'yard_and_street'
+  | 'neighborhood'
+  | 'town'
+  | 'city'
+  | 'region'
+  | 'country'
+  | 'global_special'
+  | 'fantasy';
+```
+
+Add this later to `WorldConfig`:
+
+```ts
+progressionScope: {
+  ringId: DistanceRing;
+  distanceFromHome: number;
+  locationScale: 'room' | 'house' | 'yard' | 'street' | 'neighborhood' | 'city' | 'region' | 'country' | 'fantasy';
+};
+```
+
+This supports slow expansion from home to bigger places without jumping too quickly.
+
+---
+
 # Services
 
 ## `StorageService`
 
 Purpose:
 
-Central wrapper around `localStorage`.
-
-Responsibilities:
-
-- safe JSON read/write
-- fallback defaults
-- typed helpers
-- browser storage error handling
+A typed wrapper around `localStorage`.
 
 Target:
 
@@ -648,7 +611,15 @@ Target:
 src/game/services/StorageService.ts
 ```
 
-Example:
+Responsibilities:
+
+- safe string read/write
+- safe number read/write
+- safe JSON read/write
+- fallback defaults
+- error handling for storage failures
+
+Example API:
 
 ```ts
 export class StorageService {
@@ -665,46 +636,11 @@ No scene should call `localStorage` directly after this extraction.
 
 ---
 
-## `GameStateService`
-
-Purpose:
-
-Small app-level state holder for current session.
-
-Responsibilities:
-
-- selected map node ID
-- selected speed multiplier
-- selected run mode
-- yarn basket count
-- current overlay/screen navigation assumptions if needed
-
-Target:
-
-```text
-src/game/services/GameStateService.ts
-```
-
-This can be a simple singleton object. Phaser scenes can read/write it without passing everything through constructors.
-
----
-
 ## `ProgressService`
 
 Purpose:
 
 Own Milk Map progression logic.
-
-Responsibilities:
-
-- map progress record
-- total milk calculation
-- map milk goal calculation
-- node locked/unlocked/playable status
-- gate unlock logic
-- current run node lookup
-- selected node persistence
-- post-run reward update
 
 Target:
 
@@ -712,18 +648,16 @@ Target:
 src/game/services/ProgressService.ts
 ```
 
-Move these methods out of the scene:
+Move out of scene:
 
-- `getTotalMilk()`
-- `getMapMilkGoal()`
-- `getNewestUnlockedNode()`
-- `getSelectedMapNode()`
-- `getCurrentRunNode()`
-- `isMapNodeUnlocked()`
-- `isMapGateOpen()`
-- `isMapNodePlayable()`
-- map progress read/write
-- selected map node read/write
+- selected map node
+- map progress record
+- total milk calculation
+- map milk goal calculation
+- node unlocked/playable checks
+- gate logic
+- newest playable/current run selection
+- post-run bottle updates
 
 Example API:
 
@@ -734,16 +668,17 @@ export class ProgressService {
   static getSelectedNode(): MapNode;
   static setSelectedNode(nodeId: string): void;
   static getCurrentRunNode(): MapNode;
+  static getNewestUnlockedNode(): MapNode;
   static isNodeUnlocked(node: MapNode): boolean;
   static isNodePlayable(node: MapNode): boolean;
+  static getBottlesForNode(nodeId: string): number;
   static getTotalMilk(): number;
   static getMapMilkGoal(): number;
-  static getBottlesForNode(nodeId: string): number;
   static completeRun(nodeId: string, score: number, yarn: number): number;
 }
 ```
 
-`completeRun()` should return bottles earned for the run and update progress only if the new rating is higher.
+`completeRun()` should only increase the stored bottle rating if the new rating beats the old rating.
 
 ---
 
@@ -751,18 +686,7 @@ export class ProgressService {
 
 Purpose:
 
-Own selected/unlocked cosmetics.
-
-Responsibilities:
-
-- selected cat
-- selected accessory
-- selected trail
-- selected mouse cursor
-- unlocked sets
-- buy/equip methods
-- basket spending
-- selected texture helpers
+Own selected and unlocked cosmetics.
 
 Target:
 
@@ -770,14 +694,25 @@ Target:
 src/game/services/CosmeticService.ts
 ```
 
-Move out of scene:
+Responsibilities:
 
-- `buyOrEquipCat()`
-- `buyOrEquipMouse()`
-- `buyOrEquipTrail()`
-- `buyOrEquipAccessory()`
-- cosmetic lookup helpers
-- selected item persistence
+- selected cat
+- selected accessory
+- selected trail
+- selected mouse cursor
+- unlocked cosmetic sets
+- buy/equip methods
+- yarn basket spending
+- selected texture helpers
+
+Move out of the scene:
+
+- buy/equip cat logic
+- buy/equip mouse logic
+- buy/equip trail logic
+- buy/equip accessory logic
+- selected cosmetic lookup
+- unlocked item persistence
 
 ---
 
@@ -785,15 +720,7 @@ Move out of scene:
 
 Purpose:
 
-Own audio settings, not sound playback internals.
-
-Responsibilities:
-
-- sound FX enabled
-- music enabled
-- volume
-- apply settings to `sound.ts`
-- persist settings
+Own audio settings, not necessarily sound playback.
 
 Target:
 
@@ -801,17 +728,44 @@ Target:
 src/game/services/AudioSettingsService.ts
 ```
 
+Responsibilities:
+
+- sound FX enabled
+- music enabled
+- volume
+- persistence
+- apply settings to existing `sound.ts`
+
 `src/game/sound.ts` can remain the playback helper.
 
 ---
 
-# UI Component Extraction
-
-## `PixelButton`
+## `GameStateService`
 
 Purpose:
 
-One standard button system across Launch, Map, Shop, Pause, and End states.
+Small in-memory holder for current session choices.
+
+Target:
+
+```text
+src/game/services/GameStateService.ts
+```
+
+Responsibilities:
+
+- selected run mode
+- selected speed multiplier
+- transient return scene for shop
+- any temporary scene navigation state
+
+Keep this small. Do not turn it into another blob.
+
+---
+
+# Reusable UI Components
+
+## `PixelButton`
 
 Target:
 
@@ -819,7 +773,11 @@ Target:
 src/game/ui/components/PixelButton.ts
 ```
 
-Constructor options:
+Purpose:
+
+One standard button system across Launch, Map, Shop, Pause, Win/Loss.
+
+Config:
 
 ```ts
 type PixelButtonConfig = {
@@ -846,21 +804,18 @@ destroy(): void;
 
 Visual rules:
 
-- same height system
-- same hover behavior
-- same disabled behavior
-- same text style
-- same pressed state
+- consistent height
+- consistent border
+- consistent hover
+- consistent disabled state
+- consistent text stroke
+- consistent pressed state
 
-This is a major fix for the current UI feeling inconsistent.
+This is one of the fastest ways to make the UI feel less primitive.
 
 ---
 
 ## `PixelPanel`
-
-Purpose:
-
-Reusable rounded pixel-style panel.
 
 Target:
 
@@ -868,24 +823,15 @@ Target:
 src/game/ui/components/PixelPanel.ts
 ```
 
-Supports:
+Purpose:
 
-- background color
-- alpha
-- border color
-- border width
-- radius
-- optional shadow
+Reusable rounded panel with fill, border, radius, alpha, and optional shadow.
 
-Scenes should stop manually repeating `fillRoundedRect` / `strokeRoundedRect` everywhere.
+Use it instead of repeating `fillRoundedRect` and `strokeRoundedRect` all over the scene.
 
 ---
 
 ## `MilkBottleCounter`
-
-Purpose:
-
-Reusable bottle icon + count UI.
 
 Target:
 
@@ -893,26 +839,25 @@ Target:
 src/game/ui/components/MilkBottleCounter.ts
 ```
 
+Purpose:
+
+Reusable bottle icon + count UI.
+
 Used in:
 
 - LaunchScene
 - MilkMapScene
-- maybe future end screen
+- future win/reward screens
 
-States:
+Modes:
 
-- total bottles / possible bottles
-- optional animated fill
-- compact HUD mode
-- large reward mode
+- compact HUD
+- large reward
+- map header
 
 ---
 
 ## `CatPreview`
-
-Purpose:
-
-Reusable selected-cat display with optional eye tracking.
 
 Target:
 
@@ -920,21 +865,25 @@ Target:
 src/game/ui/components/CatPreview.ts
 ```
 
+Purpose:
+
+Reusable selected-cat display with optional eye tracking.
+
 This should wrap the current eye-tracked cat behavior instead of keeping that logic in the main scene file.
 
 ---
 
 ## `SelectedRunCard`
 
-Purpose:
-
-Home screen current-run summary.
-
 Target:
 
 ```text
 src/game/ui/components/SelectedRunCard.ts
 ```
+
+Purpose:
+
+Home screen current-run summary.
 
 Shows:
 
@@ -948,15 +897,15 @@ Shows:
 
 ## `SelectedLevelCard`
 
-Purpose:
-
-Milk Map selected-level panel.
-
 Target:
 
 ```text
 src/game/ui/components/SelectedLevelCard.ts
 ```
+
+Purpose:
+
+Milk Map selected-level panel.
 
 Shows:
 
@@ -965,23 +914,23 @@ Shows:
 - best milk rating
 - flavor text
 - lock requirement if locked
-- Play button if playable
+- Play button when playable
 
-This card should be compact, stable, and not overlap the map.
+This should be compact and stable. It should never overlap the map body.
 
 ---
 
 ## `SpeedSelector`
-
-Purpose:
-
-Turn current speed button group into one reusable control.
 
 Target:
 
 ```text
 src/game/ui/components/SpeedSelector.ts
 ```
+
+Purpose:
+
+Reusable speed selector.
 
 Phase 1:
 
@@ -995,13 +944,9 @@ Phase 2:
 
 ---
 
-# Milk Map UI Modules
+# Milk Map Components
 
 ## `MilkMapRenderer`
-
-Purpose:
-
-Top-level map renderer used by `MilkMapScene`.
 
 Target:
 
@@ -1009,15 +954,19 @@ Target:
 src/game/ui/map/MilkMapRenderer.ts
 ```
 
+Purpose:
+
+Top-level map renderer used by `MilkMapScene`.
+
 Owns:
 
 - active world rendering
 - path layer
 - node layer
 - world peeks
-- selected node avatar position
+- selected cat avatar placement
 
-Should expose:
+API:
 
 ```ts
 render(worldId: string): void;
@@ -1030,33 +979,29 @@ destroy(): void;
 
 ## `WorldViewport`
 
-Purpose:
-
-Render the active world as a premium focused board.
-
 Target:
 
 ```text
 src/game/ui/map/WorldViewport.ts
 ```
 
+Purpose:
+
+Render the active world as a focused board.
+
 Owns:
 
-- world background panel
+- active world background panel
 - world title
-- visual decorative bands
-- future world art layers
-- safe bounds for nodes/labels
+- decorative bands
+- future pixel-art diorama layers
+- safe bounds for map labels/nodes
 
-Important: this should eventually replace plain colored cards with real pixel-art diorama composition.
+This is where the premium map art direction should eventually live.
 
 ---
 
 ## `MapPathLayer`
-
-Purpose:
-
-Draw node connections.
 
 Target:
 
@@ -1064,21 +1009,21 @@ Target:
 src/game/ui/map/MapPathLayer.ts
 ```
 
+Purpose:
+
+Draw node connections only.
+
 Inputs:
 
 - world node list
 - palette
-- unlocked/playable state if needed
+- selected/unlocked state if needed
 
-Should not handle clicking or text.
+Should not contain text, click handlers, or progression rules.
 
 ---
 
 ## `MapNodeView`
-
-Purpose:
-
-Reusable visual for one map node.
 
 Target:
 
@@ -1086,7 +1031,11 @@ Target:
 src/game/ui/map/MapNodeView.ts
 ```
 
-Inputs:
+Purpose:
+
+Reusable visual for one map node.
+
+Config:
 
 ```ts
 type MapNodeViewConfig = {
@@ -1106,21 +1055,17 @@ type MapNodeViewConfig = {
 States:
 
 - selected
-- completed 1/2/3 bottles
+- completed with 1/2/3 bottles
 - unlocked but unplayed
 - locked
 - bonus
 - gate
 
-The current `drawMapNodeButton()` should become this class.
+The current `drawMapNodeButton()` logic should become this class.
 
 ---
 
 ## `WorldPeekCard`
-
-Purpose:
-
-Reusable previous/next world preview tab.
 
 Target:
 
@@ -1128,20 +1073,20 @@ Target:
 src/game/ui/map/WorldPeekCard.ts
 ```
 
+Purpose:
+
+Reusable previous/next world preview tab.
+
 Shows:
 
 - Previous / Next eyebrow
 - world short name
-- color theme
+- theme color
 - click target
 
 ---
 
 ## `MapHeader`
-
-Purpose:
-
-Top Milk Map bar.
 
 Target:
 
@@ -1149,59 +1094,130 @@ Target:
 src/game/ui/map/MapHeader.ts
 ```
 
+Purpose:
+
+Milk Map top bar.
+
 Shows:
 
 - cat icon or face
-- title: `Milk Map`
+- `Milk Map`
 - milk bottle counter
-- optional back/shop buttons depending layout
+- optional Back/Shop buttons depending final layout
 
 ---
 
-# Safe Migration Plan
+# Shop Components
 
-## Phase 0: Add guardrails before moving code
+## `ShopCard`
 
-Create a baseline before refactoring.
+Target:
 
-Tasks:
+```text
+src/game/ui/shop/ShopCard.ts
+```
 
-- Run `npm run build`
-- Capture screenshots of:
-  - launch screen
-  - Milk Map
-  - shop
-  - active run
-  - win screen
-  - lose screen
-- Record a short gameplay checklist
-- Confirm local storage still contains expected values
+Purpose:
 
-Add a temporary manual QA file:
+Reusable shop item card.
+
+Owns:
+
+- preview
+- item name
+- price
+- owned/equipped state
+- click zone
+- hover tween
+
+Does not own purchase rules. It calls `onSelect(itemId)`.
+
+---
+
+## `ShopSection`
+
+Target:
+
+```text
+src/game/ui/shop/ShopSection.ts
+```
+
+Purpose:
+
+A labeled section containing multiple shop cards.
+
+Examples:
+
+- Cats
+- Mouse
+- Trails
+- Accessories
+
+---
+
+## `ShopScrollbar`
+
+Target:
+
+```text
+src/game/ui/shop/ShopScrollbar.ts
+```
+
+Purpose:
+
+Reusable scrollbar drawing and thumb update.
+
+---
+
+## `ShopNavButton`
+
+Target:
+
+```text
+src/game/ui/shop/ShopNavButton.ts
+```
+
+Purpose:
+
+Category jump buttons.
+
+---
+
+# Migration Plan
+
+## Phase 0: Add regression guardrails
+
+Before moving code:
+
+- run `npm run build`
+- capture screenshots of launch, Milk Map, shop, gameplay, win, and lose states
+- create a manual QA checklist
+
+Suggested file:
 
 ```text
 docs/qa/manual-regression-checklist.md
 ```
 
-Minimum regression checklist:
+Checklist:
 
 ```text
 Launch
 - Start screen loads
 - Selected cat appears
 - Current run card appears
-- Start Run starts the newest playable level
+- Start Run starts newest playable level
 - Milk Map opens
 - Shop opens
-- Speed selector changes speed and persists
+- Speed selector changes and persists
 
 Milk Map
 - Map opens
-- Current world renders
+- Active world renders
 - Nodes render
 - Locked nodes cannot play
 - Playable nodes can be selected
-- Play button starts selected playable node
+- Play starts selected playable node
 - Back returns home
 - Shop opens shop
 
@@ -1223,18 +1239,16 @@ Shop
 - Category buttons work
 - Buy/equip works
 - Basket updates
-- Selected cat updates home/run visuals
+- Selected cat updates on home/run
 ```
-
-No refactor PR should merge unless this still passes.
 
 ---
 
-## Phase 1: Extract data only
+## Phase 1: Extract static data
 
-Risk level: low.
+Risk: low.
 
-Move from `KittyMilkRunScene.ts` into data files:
+Create:
 
 ```text
 src/game/data/storageKeys.ts
@@ -1243,24 +1257,21 @@ src/game/data/speedOptions.ts
 src/game/data/runLevels.ts
 ```
 
-Do not change behavior. Keep imports simple.
+Move static arrays/types only. Do not change behavior.
 
 Acceptance criteria:
 
-- `KittyMilkRunScene.ts` imports these constants/types
-- no behavior changes
 - build passes
-- start screen still works
+- visuals unchanged
 - shop still works
+- map still works
 - run still works
-
-This phase reduces file size without touching scene boundaries.
 
 ---
 
-## Phase 2: Extract shared UI primitives
+## Phase 2: Extract UI primitives
 
-Risk level: low to medium.
+Risk: low to medium.
 
 Create:
 
@@ -1273,23 +1284,20 @@ src/game/ui/core/createTextStyle.ts
 src/game/ui/core/palette.ts
 ```
 
-Start with wrappers that mimic current visuals.
-
-Important: do not redesign yet. Match current behavior first.
+Start by replacing only a few buttons. Match current visuals before improving them.
 
 Acceptance criteria:
 
-- existing buttons still behave the same
-- hover/click still works
-- text style remains close to current
-- no missing hit zones
-- no broken scene depth ordering
+- click zones still work
+- hover still works
+- depth ordering still works
+- no visual regressions beyond minor differences
 
 ---
 
 ## Phase 3: Extract services
 
-Risk level: medium.
+Risk: medium.
 
 Create:
 
@@ -1311,29 +1319,19 @@ Move logic gradually:
 
 Acceptance criteria:
 
-- existing local storage keys remain unchanged
-- existing player progress is not lost
+- existing localStorage keys unchanged
+- existing player progress remains readable
 - selected cat persists
 - unlocked cosmetics persist
-- milk map progress persists
+- map progress persists
 - selected map node persists
 - speed/audio settings persist
 
-Critical rule:
-
-```text
-Do not rename localStorage keys during this refactor.
-```
-
-Renaming keys should be a separate migration later if needed.
-
 ---
 
-## Phase 4: Split Milk Map into renderer modules while staying inside current scene
+## Phase 4: Extract Milk Map renderer while keeping current scene
 
-Risk level: medium.
-
-Before creating multiple scenes, extract Milk Map rendering into modules that can still be used by `KittyMilkRunScene`.
+Risk: medium.
 
 Create:
 
@@ -1347,34 +1345,50 @@ src/game/ui/map/MapHeader.ts
 src/game/ui/components/SelectedLevelCard.ts
 ```
 
-Replace direct methods:
-
-- `createMapWorldBands()` -> `WorldViewport`
-- `createWorldPeek()` -> `WorldPeekCard`
-- `createMapConnections()` -> `MapPathLayer`
-- `createMapNodes()` + `drawMapNodeButton()` -> `MapNodeView`
-- `createMapPreviewCard()` -> `SelectedLevelCard`
-
-Keep `createMilkMapScreen()` as a thin coordinator until scene split.
+Move map drawing out of `KittyMilkRunScene` while still letting the current scene call the renderer.
 
 Acceptance criteria:
 
 - Milk Map still opens
 - nodes still select
-- selected cat avatar follows selected node
-- locked/unlocked/playable states still match previous behavior
-- Play still starts the correct run
-- total milk display remains correct
+- selected avatar follows selected node
+- locked states still match
+- gates still work
+- bonus nodes still work
+- bottle ratings still show
+- Play starts the correct run
 
 ---
 
-## Phase 5: Split scenes
+## Phase 5: Extract shop renderer while keeping current scene
 
-Risk level: medium to high.
+Risk: medium.
 
-Only start after Phases 1-4 are stable.
+Create:
 
-Create scene files:
+```text
+src/game/ui/shop/ShopCard.ts
+src/game/ui/shop/ShopSection.ts
+src/game/ui/shop/ShopScrollbar.ts
+src/game/ui/shop/ShopNavButton.ts
+```
+
+Acceptance criteria:
+
+- shop opens
+- scrolling works
+- category jumps work
+- buy/equip works
+- basket updates
+- selected cosmetic updates elsewhere
+
+---
+
+## Phase 6: Split Phaser scenes
+
+Risk: medium to high.
+
+Create:
 
 ```text
 src/game/scenes/LaunchScene.ts
@@ -1383,13 +1397,13 @@ src/game/scenes/ShopScene.ts
 src/game/scenes/RunScene.ts
 ```
 
-Update `src/main.ts` scene registration:
+Update `src/main.ts`:
 
 ```ts
 scene: [BootScene, LaunchScene, MilkMapScene, ShopScene, RunScene]
 ```
 
-or without boot scene initially:
+or initially:
 
 ```ts
 scene: [LaunchScene, MilkMapScene, ShopScene, RunScene]
@@ -1411,113 +1425,78 @@ this.scene.start('ShopScene', { returnTo: 'MilkMapScene' });
 // ShopScene
 this.scene.start(returnTo ?? 'LaunchScene');
 
-// RunScene after win/loss/retry/back
+// RunScene
 this.scene.start('LaunchScene');
 ```
 
 Acceptance criteria:
 
 - app boots to home
-- home can start run
-- home can open map
-- home can open shop
+- home starts run
+- home opens map
+- home opens shop
 - map can select/play level
-- shop can return to previous screen
-- run can return to home after win/loss
-- no duplicate sounds/events after navigating between scenes
-- no orphaned Phaser objects left visible
+- shop returns to previous screen
+- run returns to home after win/loss
+- no duplicate input handlers
+- no duplicate sounds
+- no orphaned visible objects
 
 ---
 
-## Phase 6: Visual upgrade pass
+## Phase 7: Premium Milk Map visual pass
 
-Risk level: low once architecture is clean.
+Risk: low after architecture is clean.
 
-Now improve the Milk Map visually.
+Improve:
 
-Do not start this until rendering is modular.
-
-Focus:
-
-- one active premium world viewport
+- one active world viewport
 - previous/next world peeks
 - compact header
 - compact selected-level card
-- consistent button sizing
+- consistent buttons
 - reusable node states
-- less text inside the map body
-- environment-specific landmarks
+- fewer labels inside the map body
+- environment landmarks
 - pixel-art diorama backgrounds
-- normalized map coordinates later if needed
 
-This phase should be mostly isolated to:
+This phase should mostly touch:
 
 ```text
-src/game/ui/map/
-src/game/ui/components/
+src/game/scenes/MilkMapScene.ts
+src/game/ui/map/*
+src/game/ui/components/SelectedLevelCard.ts
 src/game/data/worldMap.ts
-public/assets/
+public/assets/*
 ```
 
-Gameplay should not need to change.
+Gameplay should remain untouched.
 
 ---
 
-# Critical No-Break Rules
+# No-Break Rules
 
-## Do not change these during the refactor
+Do not change these during structural refactor:
 
-- lane positions
 - `GAME_WIDTH`
 - `GAME_HEIGHT`
+- lane positions
 - physics settings
 - obstacle spawn timing
-- scoring thresholds unless intentionally changing level balance
+- scoring thresholds
 - localStorage key names
-- asset keys
-- sound helper behavior
 - map node IDs
 - world IDs
+- asset keys
+- sound helper behavior
 
-Changing IDs or storage keys can silently wipe progress. Avoid that until a migration system exists.
-
----
-
-## Avoid parallel rewrites
-
-Do not ask Codex to split scenes, redesign the Milk Map, and change gameplay in the same task.
-
-Bad task:
-
-```text
-Refactor scenes, redesign Milk Map, add new worlds, and improve gameplay difficulty.
-```
-
-Good task:
-
-```text
-Extract map data and cosmetic data from KittyMilkRunScene without changing behavior.
-```
-
-Good task:
-
-```text
-Create PixelButton and replace only the home screen action buttons with it.
-```
-
-Good task:
-
-```text
-Move Milk Map node rendering into MapNodeView while preserving current selected, locked, gate, bonus, and bottle states.
-```
+Changing IDs or storage keys can silently wipe player progress. Treat that as a separate migration later.
 
 ---
 
 # Suggested PR Sequence
 
 ## PR 1: Data extraction
-
-Title:
 
 ```text
 Extract game data from KittyMilkRunScene
@@ -1535,13 +1514,11 @@ src/game/KittyMilkRunScene.ts
 
 Expected outcome:
 
-`KittyMilkRunScene.ts` gets smaller. No visual changes.
+Scene file is smaller. No behavior changes.
 
 ---
 
-## PR 2: UI primitive extraction
-
-Title:
+## PR 2: UI primitives
 
 ```text
 Add reusable Phaser UI primitives
@@ -1560,13 +1537,11 @@ src/game/ui/core/palette.ts
 
 Expected outcome:
 
-Reusable UI pieces exist. Replace only a small number of buttons at first.
+Reusable UI pieces exist. Replace only a small set of buttons at first.
 
 ---
 
-## PR 3: Progress and storage service extraction
-
-Title:
+## PR 3: Progress and storage services
 
 ```text
 Move progression and local storage logic into services
@@ -1587,9 +1562,7 @@ Map unlock logic no longer lives directly in the scene.
 
 ---
 
-## PR 4: Cosmetic and audio service extraction
-
-Title:
+## PR 4: Cosmetic and audio services
 
 ```text
 Move cosmetics and audio settings into services
@@ -1605,13 +1578,11 @@ src/game/KittyMilkRunScene.ts
 
 Expected outcome:
 
-Shop and home screens can read equipped items without owning storage logic.
+Shop and home read equipped items without owning persistence logic.
 
 ---
 
 ## PR 5: Milk Map renderer extraction
-
-Title:
 
 ```text
 Extract Milk Map renderer and map UI components
@@ -1631,13 +1602,11 @@ src/game/KittyMilkRunScene.ts
 
 Expected outcome:
 
-Milk Map logic is easier to edit. No major visual redesign yet.
+Milk Map is easier to edit. No visual redesign yet.
 
 ---
 
 ## PR 6: Shop UI extraction
-
-Title:
 
 ```text
 Extract shop UI components
@@ -1655,13 +1624,11 @@ src/game/KittyMilkRunScene.ts
 
 Expected outcome:
 
-Shop code is no longer embedded directly in the main scene.
+Shop code no longer lives directly in the main scene.
 
 ---
 
 ## PR 7: Scene split
-
-Title:
 
 ```text
 Split launch, map, shop, and run into Phaser scenes
@@ -1686,8 +1653,6 @@ Expected outcome:
 
 ## PR 8: Milk Map premium visual pass
 
-Title:
-
 ```text
 Upgrade Milk Map layout and world viewport visuals
 ```
@@ -1708,21 +1673,80 @@ The map begins to feel like a premium cat adventure atlas instead of a prototype
 
 ---
 
-# Future-Level Framework
+# Codex Prompt Templates
 
-The progression fantasy should be:
+## Prompt 1
 
 ```text
-Home -> Around the House -> Yard and Street -> Neighborhood -> Town -> City -> Region -> Country -> World -> Special/Fantasy
+Refactor KittyMilkRunScene by extracting static data only. Move storage keys, cosmetics/accessories/trails/mouse options, speed options, and run level theme options into separate files under src/game/data. Do not change gameplay behavior, map behavior, localStorage key names, IDs, UI layout, or asset keys. Update imports only. Run npm run build and fix TypeScript errors.
 ```
 
-The cat should not leave home too quickly. The map should support lots of levels by gradually expanding the emotional radius.
+## Prompt 2
 
-## Progression rings
+```text
+Add reusable Phaser UI primitives without changing current visuals. Create PixelButton, PixelPanel, MilkBottleCounter, CatPreview, and shared text style helpers. Replace only the home screen Start Run, Milk Map, and Shop buttons with PixelButton. Preserve size, labels, hover behavior, click behavior, and visual style as closely as possible. Do not touch gameplay logic.
+```
 
-### Ring 0: Home Base
+## Prompt 3
 
-Scale: one room / safe nest
+```text
+Extract Milk Map progression and localStorage access into StorageService and ProgressService. Preserve all existing localStorage key names and map node IDs. Move getTotalMilk, getMapMilkGoal, getSelectedMapNode, getCurrentRunNode, isMapNodeUnlocked, isMapGateOpen, and isMapNodePlayable out of KittyMilkRunScene. Keep UI behavior unchanged. Run build and manually verify launch, map, and starting a run.
+```
+
+## Prompt 4
+
+```text
+Extract cosmetic purchase/equip state and audio setting state into CosmeticService and AudioSettingsService. Do not change shop prices, item IDs, unlocked defaults, selected defaults, sound behavior, or localStorage keys. Keep the current shop UI functional. Run build and verify buying/equipping cats, mouse cursors, trails, and accessories still works.
+```
+
+## Prompt 5
+
+```text
+Extract Milk Map rendering into dedicated modules under src/game/ui/map while keeping the current scene architecture intact. Create MilkMapRenderer, WorldViewport, MapPathLayer, MapNodeView, WorldPeekCard, and SelectedLevelCard. Move drawing code out of KittyMilkRunScene but preserve current layout and behavior. Do not redesign visuals yet. Verify node selection, locked states, gates, bonus nodes, bottle ratings, and Play button behavior.
+```
+
+## Prompt 6
+
+```text
+Extract shop UI into reusable modules under src/game/ui/shop. Preserve current shop layout, scrolling, masks, category buttons, purchase/equip behavior, and Cat God toggle. Do not modify item data or prices. Run build and verify shop scroll, category navigation, and item selection.
+```
+
+## Prompt 7
+
+```text
+Split the app into Phaser scenes: LaunchScene, MilkMapScene, ShopScene, and RunScene. Use services for shared state. Register scenes in main.ts. Preserve gameplay behavior and screen navigation. RunScene should contain the existing runner mechanics. LaunchScene should handle home UI. MilkMapScene should handle level selection. ShopScene should handle shop UI. Do not redesign visuals in this PR.
+```
+
+## Prompt 8
+
+```text
+Now that the Milk Map is modular, upgrade the Milk Map layout into a premium active-world viewport. Use one focused world map, previous/next world peeks, a compact header, a compact selected-level card, consistent buttons, and reusable node states. Keep gameplay untouched. Keep progression logic untouched unless needed for display only.
+```
+
+---
+
+# Future Level Framework
+
+The world progression fantasy should be:
+
+```text
+Home
+→ Around the House
+→ Yard and Street
+→ Neighborhood
+→ Town
+→ City
+→ Region
+→ Country
+→ Global Special
+→ Fantasy/Event Worlds
+```
+
+The cat should not leave home too quickly. The game can support many levels by expanding the emotional radius slowly.
+
+## Ring 0: Home Base
+
+Scale: safe nest / one room.
 
 Examples:
 
@@ -1731,9 +1755,9 @@ Examples:
 - Toy Corner
 - Pantry Peek
 
-### Ring 1: Around the House
+## Ring 1: Around the House
 
-Scale: rooms inside the home
+Scale: rooms inside the home.
 
 Examples:
 
@@ -1744,9 +1768,9 @@ Examples:
 - Laundry Mountain
 - Bathroom Faucet Temple
 
-### Ring 2: Yard and Street
+## Ring 2: Yard and Street
 
-Scale: still near home, but outside
+Scale: still near home, but outside.
 
 Examples:
 
@@ -1756,9 +1780,9 @@ Examples:
 - Mailbox Mile
 - Garden Wall
 
-### Ring 3: Neighborhood
+## Ring 3: Neighborhood
 
-Scale: first public-world feeling
+Scale: first public-world feeling.
 
 Examples:
 
@@ -1766,11 +1790,11 @@ Examples:
 - Alley Council
 - Corner Store Crate Run
 - Park Bench Patrol
-- Cat Café Window
+- Cat Cafe Window
 
-### Ring 4: Town / City
+## Ring 4: Town / City
 
-Scale: bigger movement, more visual density
+Scale: bigger movement, more visual density.
 
 Examples:
 
@@ -1780,9 +1804,9 @@ Examples:
 - Night Market Noodles
 - Apartment Balcony Circuit
 
-### Ring 5: State / Region
+## Ring 5: State / Region
 
-Scale: recognizable landscapes
+Scale: recognizable landscapes.
 
 Examples:
 
@@ -1792,9 +1816,9 @@ Examples:
 - Forest Cabin Window
 - Farm Barnyard Shortcut
 
-### Ring 6: Countries / Cultures
+## Ring 6: Countries / Cultures
 
-Scale: respectful location-inspired worlds
+Scale: respectful location-inspired worlds.
 
 Examples:
 
@@ -1804,11 +1828,11 @@ Examples:
 - London Rainy Windowsills
 - Mexico City Market Cats
 
-Important: world design should be affectionate and specific, not stereotype-driven. Use real visual research later before committing art.
+Use specific, researched visual details later. Avoid generic stereotypes.
 
-### Ring 7: Fantasy / Event Worlds
+## Ring 7: Fantasy / Event Worlds
 
-Scale: unlockable, seasonal, or special
+Scale: unlockable, seasonal, or special.
 
 Examples:
 
@@ -1820,135 +1844,10 @@ Examples:
 
 ---
 
-# Map Data Framework for Scaling
-
-Each world should eventually support this structure:
-
-```ts
-export type WorldConfig = {
-  id: string;
-  displayName: string;
-  shortName: string;
-  order: number;
-  ring: number;
-  progressionScope: {
-    ringId: DistanceRing;
-    distanceFromHome: number;
-    locationScale: LocationScale;
-  };
-  atlasLabel: string;
-  locationFantasy: string;
-  previewHint: string;
-  unlockMilkRequirement: number;
-  palette: WorldPalette;
-  mapSkin: WorldMapSkin;
-  gameplaySkin: WorldGameplaySkin;
-  audioSkin: WorldAudioSkin;
-  difficultyProfile: WorldDifficultyProfile;
-  mechanicFlags: MechanicFlags;
-  artDirection?: {
-    backgroundAsset?: string;
-    landmarkAssets?: string[];
-    nodeSkin?: string;
-    pathSkin?: string;
-  };
-};
-```
-
-Each level node should eventually support:
-
-```ts
-export type MapNode = {
-  id: string;
-  worldId: string;
-  displayName: string;
-  flavor: string;
-  levelSceneKey: string;
-  nodeType: 'main' | 'bonus' | 'gate' | 'challenge' | 'story';
-  position: {
-    x: number;
-    y: number;
-    coordinateMode: 'absolute' | 'normalized';
-  };
-  unlock: {
-    previousNodeId?: string;
-    requiredMilkBottles: number;
-    requiredItemId?: string;
-  };
-  scoreTargets: {
-    oneBottle: number;
-    twoBottleScore: number;
-    threeBottleScore: number;
-  };
-  art?: {
-    nodeIcon?: string;
-    labelOffsetX?: number;
-    labelOffsetY?: number;
-  };
-};
-```
-
-Do not switch to normalized coordinates in the first refactor. Add support later when the map visuals are stable.
-
----
-
-# Codex Prompt Templates
-
-## PR 1 prompt
-
-```text
-Refactor KittyMilkRunScene by extracting static data only. Move storage keys, cosmetics/accessories/trails/mouse options, speed options, and run level theme options into separate files under src/game/data. Do not change gameplay behavior, map behavior, localStorage key names, IDs, UI layout, or asset keys. Update imports only. Run npm run build and fix TypeScript errors.
-```
-
-## PR 2 prompt
-
-```text
-Add reusable Phaser UI primitives without changing current visuals. Create PixelButton, PixelPanel, MilkBottleCounter, CatPreview, and shared text style helpers. Replace only the home screen Start Run, Milk Map, and Shop buttons with PixelButton. Preserve size, labels, hover behavior, click behavior, and visual style as closely as possible. Do not touch gameplay logic.
-```
-
-## PR 3 prompt
-
-```text
-Extract Milk Map progression and localStorage access into StorageService and ProgressService. Preserve all existing localStorage key names and map node IDs. Move getTotalMilk, getMapMilkGoal, getSelectedMapNode, getCurrentRunNode, isMapNodeUnlocked, isMapGateOpen, and isMapNodePlayable out of KittyMilkRunScene. Keep UI behavior unchanged. Run build and manually verify launch, map, and starting a run.
-```
-
-## PR 4 prompt
-
-```text
-Extract cosmetic purchase/equip state and audio setting state into CosmeticService and AudioSettingsService. Do not change shop prices, item IDs, unlocked defaults, selected defaults, sound behavior, or localStorage keys. Keep the current shop UI functional. Run build and verify buying/equipping cats, mouse cursors, trails, and accessories still works.
-```
-
-## PR 5 prompt
-
-```text
-Extract Milk Map rendering into dedicated modules under src/game/ui/map while keeping the current scene architecture intact. Create MilkMapRenderer, WorldViewport, MapPathLayer, MapNodeView, WorldPeekCard, and SelectedLevelCard. Move drawing code out of KittyMilkRunScene but preserve current layout and behavior. Do not redesign visuals yet. Verify node selection, locked states, gates, bonus nodes, bottle ratings, and Play button behavior.
-```
-
-## PR 6 prompt
-
-```text
-Extract shop UI into reusable modules under src/game/ui/shop. Preserve current shop layout, scrolling, masks, category buttons, purchase/equip behavior, and Cat God toggle. Do not modify item data or prices. Run build and verify shop scroll, category navigation, and item selection.
-```
-
-## PR 7 prompt
-
-```text
-Split the app into Phaser scenes: LaunchScene, MilkMapScene, ShopScene, and RunScene. Use services for shared state. Register scenes in main.ts. Preserve gameplay behavior and screen navigation. RunScene should contain the existing runner mechanics. LaunchScene should handle home UI. MilkMapScene should handle level selection. ShopScene should handle shop UI. Do not redesign visuals in this PR.
-```
-
-## PR 8 prompt
-
-```text
-Now that the Milk Map is modular, upgrade the Milk Map layout into a premium active-world viewport. Use one focused world map, previous/next world peeks, a compact header, a compact selected-level card, consistent buttons, and reusable node states. Keep gameplay untouched. Keep progression logic untouched unless needed for display only.
-```
-
----
-
 # Definition of Done
 
 The refactor is successful when:
 
-- `KittyMilkRunScene.ts` no longer contains every feature in the app
 - gameplay is isolated in `RunScene`
 - home, map, and shop are separate scenes
 - world/map data is separate from rendering code
@@ -1965,14 +1864,6 @@ The refactor is successful when:
 
 # Final Recommendation
 
-Do not start with the visual redesign. Start with extraction.
+Do not let Codex redesign the Milk Map inside the current blob. Extract first.
 
-The current visual problems are symptoms of weak separation. Once the Milk Map has its own scene, renderer, node component, selected-level card, and shared button/panel primitives, the premium visual pass will be much easier and much safer.
-
-The safest path is:
-
-```text
-Data extraction -> UI primitives -> services -> Milk Map renderer -> shop renderer -> scene split -> visual upgrade
-```
-
-That sequence protects the playable game while making the UI editable and scalable.
+The current game has charm and the world data model is already headed in the right direction. The structural problem is that UI, progression, shop, and gameplay are sharing one scene. Once those boundaries are separated, visual upgrades will be safer, faster, and much easier to annotate.
