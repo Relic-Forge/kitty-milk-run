@@ -2485,6 +2485,12 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.resetToStartScreen();
   }
 
+  private startNextLevelFromResult() {
+    if (this.phase !== 'won') return;
+    this.resetToStartScreen();
+    this.startGame();
+  }
+
   private resetToStartScreen() {
     this.obstacles.clear(true, true);
     this.yarns.clear(true, true);
@@ -3054,8 +3060,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.showEndOverlay(
       farmRun ? 'YARN FARMED!' : perfectRun ? 'PUUURFECT!' : 'MILK FOUND!',
       farmRun ? 'Kitty filled the basket.' : 'Kitty got the milk.',
-      'Press Space to play again.',
-      perfectRun
+      perfectRun,
+      farmRun ? 'PLAY AGAIN' : 'NEXT LEVEL',
+      farmRun ? () => this.restartGame() : () => this.startNextLevelFromResult()
     );
     this.overlay.setY(GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
     this.tweens.add({ targets: farmRun ? [this.cat, bowl] : [this.cat, bowl, this.milkBottle], y: '+=8', duration: 260, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -3087,35 +3094,37 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.crazyHair.setVisible(false);
     this.roombaMount.setVisible(false);
     this.pawPrints.clear(true, true);
-    this.showEndOverlay('OH NO!', 'The kitty got spooked.', 'Press Space to retry.', false);
+    this.showEndOverlay('OH NO!', 'The kitty got spooked.', false, 'TRY AGAIN', () => this.restartGame());
     this.overlay.setY(GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
   }
 
-  private showEndOverlay(title: string, message: string, prompt: string, perfectRun: boolean) {
+  private showEndOverlay(title: string, message: string, perfectRun: boolean, primaryLabel: string, primaryAction: () => void) {
     this.clearEndUi();
     this.showOverlay(title, '');
-    this.titleText.setPosition(0, -176).setFontSize(perfectRun ? 58 : 54).setScale(1);
-    this.instructionText.setPosition(0, 176).setFontSize(20).setText(prompt);
+    this.titleText.setPosition(0, -166).setFontSize(perfectRun ? 58 : 54).setScale(1);
+    this.instructionText.setText('');
 
     const scoreLabel = this.add
-      .text(0, -76, 'Yarn Collected', this.textStyle(22, '#fffad0'))
+      .text(0, -68, 'Yarn Collected', this.textStyle(22, '#fffad0'))
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
     const scoreValue = this.add
-      .text(0, -6, '0', {
+      .text(0, -2, '0', {
         fontFamily: 'Arial Black, Arial, sans-serif',
-        fontSize: '78px',
+        fontSize: '72px',
         color: '#ffffff',
         align: 'center'
       })
       .setOrigin(0.5)
       .setStroke('#17347e', 9);
     const messageText = this.add
-      .text(0, 82, message, this.textStyle(26, '#dff7ff'))
+      .text(0, 62, message, this.textStyle(24, '#dff7ff'))
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
-    this.overlay.add([scoreLabel, scoreValue, messageText]);
-    this.endUiElements.push(scoreLabel, scoreValue, messageText);
+    const primaryButton = this.createOverlayButton(-96, 142, 172, 48, primaryLabel, 0x53d36d, primaryAction);
+    const homeButton = this.createOverlayButton(112, 142, 142, 48, 'HOME', 0xffd166, () => this.restartGame());
+    this.overlay.add([scoreLabel, scoreValue, messageText, primaryButton, homeButton]);
+    this.endUiElements.push(scoreLabel, scoreValue, messageText, primaryButton, homeButton);
 
     const scoreTween = { value: 0 };
     this.tweens.add({
@@ -3145,6 +3154,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.instructionText.setText(instructions);
     this.titleText.setPosition(0, -202).setFontSize(48).setScale(1);
     this.instructionText.setPosition(0, 204).setFontSize(22);
+    this.setLaunchUiVisible(false);
     this.setShopUiVisible(false);
     this.setRunUiVisible(false);
     this.updateSpeedUi();
