@@ -66,3 +66,7 @@ export const LEVELS: LevelOption[] = [
     decorKeys: [ASSETS.flower, ASSETS.grassTuft, ASSETS.paw, ASSETS.cucumber]
   }
 ];
+
+export function getRunThemeByThemeKey(themeKey: ThemeKey): LevelOption {
+  return LEVELS.find((level) => level.id === themeKey) ?? LEVELS[0];
+}

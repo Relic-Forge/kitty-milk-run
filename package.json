@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "validate:game-data": "tsx scripts/validate-game-data.ts"
   },
   "dependencies": {
     "phaser": "latest",
@@ -14,6 +16,7 @@
     "vite": "latest"
   },
   "devDependencies": {
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "tsx": "^4.20.6"
   }
 }

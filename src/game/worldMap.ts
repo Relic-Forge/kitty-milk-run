@@ -532,3 +532,23 @@ export const MAP_CONNECTIONS = MAP_NODES.flatMap((node) => {
 export function getWorldForNode(node: MapNode) {
   return WORLDS.find((world) => world.id === node.worldId) ?? WORLDS[0];
 }
+
+export function getMapNodeById(nodeId: string): MapNode | undefined {
+  return MAP_NODES.find((node) => node.id === nodeId);
+}
+
+export function getRequiredMapNode(nodeId: string): MapNode {
+  const node = getMapNodeById(nodeId);
+  if (!node) throw new Error(`Unknown map node: ${nodeId}`);
+  return node;
+}
+
+export function getWorldById(worldId: string): WorldConfig | undefined {
+  return WORLDS.find((world) => world.id === worldId);
+}
+
+export function getRequiredWorld(worldId: string): WorldConfig {
+  const world = getWorldById(worldId);
+  if (!world) throw new Error(`Unknown world: ${worldId}`);
+  return world;
+}

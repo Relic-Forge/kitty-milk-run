@@ -12,7 +12,6 @@ const game = new Phaser.Game({
   parent: 'game',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  resolution: Math.min(window.devicePixelRatio || 1, 1.3),
   backgroundColor: '#73d36a',
   scene: [BootScene, LaunchScene, MilkMapScene, ShopScene, RunScene],
   scale: {

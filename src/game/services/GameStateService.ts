@@ -13,8 +13,8 @@ export class GameStateService {
   static load() {
     const storedSpeed = StorageService.getNumber(STORAGE_KEYS.speed, 1);
     GameStateService.speedMultiplier = SPEED_OPTIONS.some((option) => option.multiplier === storedSpeed) ? storedSpeed : 1;
-    const storedLevel = StorageService.getOptionalString(STORAGE_KEYS.level) as LevelId | null;
-    GameStateService.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? storedLevel : 'kitchen';
+    const storedLevel = StorageService.getOptionalString(STORAGE_KEYS.level);
+    GameStateService.selectedLevelId = LEVELS.some((level) => level.id === storedLevel) ? (storedLevel as LevelId) : 'kitchen';
     const storedMode = StorageService.getOptionalString(STORAGE_KEYS.mode) as RunMode | null;
     GameStateService.runMode = storedMode === 'farm-for-yarn' ? 'farm-for-yarn' : 'milk-run';
   }

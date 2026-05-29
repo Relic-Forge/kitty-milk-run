@@ -32,6 +32,7 @@ import { PixelButton } from '../ui/components/PixelButton';
 import { MilkMapRenderer } from '../ui/map/MilkMapRenderer';
 import { ShopRenderer } from '../ui/shop/ShopRenderer';
 import { MAP_NODES, WORLDS, getWorldForNode, type MapNode } from '../worldMap';
+import { BaseScene } from './BaseScene';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
@@ -104,7 +105,7 @@ const FARM_YARN_GOAL = 300;
 const FARM_YARN_ROW_SPACING = 150;
 const FARM_YARN_FIRST_ROW_DISTANCE = 250;
 
-export class RunScene extends Phaser.Scene {
+export class RunScene extends BaseScene {
   private cat!: Phaser.GameObjects.Image;
   private roombaMount!: Phaser.GameObjects.Image;
   private crazyHair!: Phaser.GameObjects.Image;
@@ -172,6 +173,7 @@ export class RunScene extends Phaser.Scene {
   private displayedProgress = 0;
   private obstacleHits = 0;
   private returnToSceneKey: string | undefined;
+  private runNodeId: string | undefined;
 
   constructor(
     sceneKey = 'RunScene',
@@ -181,8 +183,9 @@ export class RunScene extends Phaser.Scene {
     super(sceneKey);
   }
 
-  init(data?: { returnTo?: string }) {
+  init(data?: { returnTo?: string; nodeId?: string }) {
     this.returnToSceneKey = data?.returnTo;
+    this.runNodeId = data?.nodeId;
   }
 
   preload() {
@@ -263,6 +266,7 @@ export class RunScene extends Phaser.Scene {
 
   private createWorld() {
     const level = this.getSelectedLevel();
+    const levelId = level.id as string;
     this.scrollables.clear(false, false);
     this.worldObjects.clear(true, true);
     this.cameras.main.setBackgroundColor(level.backgroundColor);
@@ -272,7 +276,7 @@ export class RunScene extends Phaser.Scene {
       this.addWorldObject(stripe, 0.42);
     }
 
-    if (level.id === 'magical-kingdom') {
+    if (levelId === 'magical-kingdom') {
       this.createKingdomSkyline();
     }
 
@@ -283,7 +287,7 @@ export class RunScene extends Phaser.Scene {
 
     for (const x of [395, 565]) {
       for (let y = -30; y < GAME_HEIGHT + 60; y += 72) {
-        if (level.id === 'magical-kingdom') {
+        if (levelId === 'magical-kingdom') {
           const star = this.add.star(x, y, 5, 5, 13, level.laneMark, 0.74).setDepth(DEPTHS.trackDecor);
           this.addWorldObject(star, 1);
         } else {
@@ -792,6 +796,9 @@ export class RunScene extends Phaser.Scene {
       buyOrEquipTrail: (option) => this.buyOrEquipTrail(option),
       buyOrEquipAccessory: (option) => this.buyOrEquipAccessory(option),
       toggleCatGodMode: () => this.toggleCatGodMode(),
+      isUnlocked: (kind, optionId) => CosmeticService.isUnlocked(kind, optionId),
+      isSelected: (kind, optionId) => CosmeticService.isSelected(kind, optionId),
+      isCatGodMode: () => CosmeticService.isCatGodMode(),
       updateRunLoadoutUi: () => this.updateRunLoadoutUi(),
       updateSpeedUi: () => this.updateSpeedUi(),
       updateLevelUi: () => this.updateLevelUi(),
@@ -802,7 +809,7 @@ export class RunScene extends Phaser.Scene {
     this.shopUiElements.push(...this.shopRenderer.elements);
   }
 
-  private createEyeTrackedCat(x: number, y: number, texture: string, scale: number, usesNyanArt = false): EyeTrackedCat {
+  protected override createEyeTrackedCat(x: number, y: number, texture: string, scale: number, usesNyanArt = false): EyeTrackedCat {
     const container = this.add.container(x, y).setScale(scale);
     const base = this.add.image(0, 0, texture);
     const eyes = this.add.image(0, 0, ASSETS.catKawaiiEyes);
@@ -828,7 +835,7 @@ export class RunScene extends Phaser.Scene {
     return trackedCat;
   }
 
-  private setEyeTrackedCatTexture(container: Phaser.GameObjects.Container, cosmetic: CosmeticOption) {
+  protected override setEyeTrackedCatTexture(container: Phaser.GameObjects.Container, cosmetic: CosmeticOption) {
     const trackedCat = this.eyeTrackedCats.find((cat) => cat.container === container);
     if (!trackedCat) return;
     const usesNyanArt = cosmetic.style === 'nyan';
@@ -1073,7 +1080,7 @@ export class RunScene extends Phaser.Scene {
       this.startGame();
       return;
     }
-    this.startScene('RunScene');
+    this.startScene('RunScene', { nodeId: this.getCurrentRunNode().id });
   }
 
   private startScene(sceneKey: string, data?: object) {
@@ -1528,6 +1535,7 @@ export class RunScene extends Phaser.Scene {
       this.speedMultiplier = GameStateService.getSpeedMultiplier();
       this.selectedLevelId = GameStateService.getSelectedLevelId();
       ProgressService.load();
+      if (this.runNodeId) ProgressService.setSelectedNode(this.runNodeId);
       this.selectedMapNodeId = ProgressService.getSelectedNodeId();
       this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
       GameStateService.setSelectedLevelId(this.selectedLevelId);
@@ -1542,6 +1550,7 @@ export class RunScene extends Phaser.Scene {
       this.selectedLevelId = GameStateService.getSelectedLevelId();
       this.selectedMapNodeId = MAP_NODES[0].id;
       ProgressService.load();
+      if (this.runNodeId) ProgressService.setSelectedNode(this.runNodeId);
       this.runMode = GameStateService.getRunMode();
       this.syncAudioSettingsFromService();
       this.speed = this.getStartingSpeed();
@@ -2395,7 +2404,7 @@ export class RunScene extends Phaser.Scene {
     this.progressFill.fillRoundedRect(x + 10, y + 7, Math.max(0, fillWidth - 16), 5, 4);
   }
 
-  private floatText(text: string, x: number, y: number, color: string) {
+  protected override floatText(text: string, x: number, y: number, color: string) {
     const label = this.add.text(x, y, text, this.textStyle(18, color)).setOrigin(0.5).setDepth(DEPTHS.effects);
     this.tweens.add({
       targets: label,
@@ -2463,7 +2472,7 @@ export class RunScene extends Phaser.Scene {
     return MAX_SPEED * this.speedMultiplier;
   }
 
-  private textStyle(fontSize: number, color: string): Phaser.Types.GameObjects.Text.TextStyle {
+  protected override textStyle(fontSize: number, color: string): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: 'Arial Black, Arial, sans-serif',
       fontSize: `${fontSize}px`,

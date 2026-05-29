@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from '../data/storageKeys';
-import { MAP_NODES, getWorldForNode, type MapNode } from '../worldMap';
+import { MAP_NODES, getMapNodeById, getWorldForNode, type MapNode } from '../worldMap';
 import { StorageService } from './StorageService';
 
 type ProgressRecord = Record<string, number>;
@@ -61,7 +61,8 @@ export class ProgressService {
   static isNodeUnlocked(node: MapNode): boolean {
     if (ProgressService.getTotalMilk() < node.unlock.requiredMilkBottles) return false;
     if (!node.unlock.previousNodeId) return true;
-    if (node.unlock.previousNodeId.includes('_gate')) return ProgressService.isGateOpen(node.unlock.previousNodeId);
+    const previousNode = getMapNodeById(node.unlock.previousNodeId);
+    if (previousNode?.nodeType === 'gate') return ProgressService.isGateOpen(previousNode.id);
     return ProgressService.getBottlesForNode(node.unlock.previousNodeId) > 0;
   }
 
@@ -106,7 +107,11 @@ export class ProgressService {
     }
     const bottles = ProgressService.getBottlesForNode(node.id);
     const rating = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
-    const locked = ProgressService.isNodeUnlocked(node) ? '' : ` Need ${node.unlock.requiredMilkBottles} milk.`;
+    const locked = ProgressService.isNodeUnlocked(node)
+      ? ''
+      : node.unlock.requiredMilkBottles > 0
+        ? ` Need ${node.unlock.requiredMilkBottles} milk.`
+        : ' Finish the previous stop first.';
     return `World: ${world.shortName}  Best: ${rating}\n${node.flavor}${locked}`;
   }
 

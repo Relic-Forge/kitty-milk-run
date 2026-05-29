@@ -10,7 +10,6 @@ import {
   type MouseOption,
   type TrailOption
 } from '../../data/cosmetics';
-import { CosmeticService } from '../../services/CosmeticService';
 
 type VisibleGameObject = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible;
 
@@ -64,6 +63,9 @@ export type ShopRendererConfig = {
   buyOrEquipTrail: (option: TrailOption) => void;
   buyOrEquipAccessory: (option: AccessoryOption) => void;
   toggleCatGodMode: () => void;
+  isUnlocked: (kind: ShopCard['kind'], optionId: string) => boolean;
+  isSelected: (kind: ShopCard['kind'], optionId: string) => boolean;
+  isCatGodMode: () => boolean;
   updateRunLoadoutUi: () => void;
   updateSpeedUi: () => void;
   updateLevelUi: () => void;
@@ -129,11 +131,11 @@ export class ShopRenderer {
 
   update() {
     for (const card of this.cards) {
-      const unlocked = CosmeticService.isUnlocked(card.kind, card.option.id);
-      const selected = CosmeticService.isSelected(card.kind, card.option.id);
+      const unlocked = this.config.isUnlocked(card.kind, card.option.id);
+      const selected = this.config.isSelected(card.kind, card.option.id);
       card.priceText.setText(card.option.cost === 0 ? 'Free' : `${card.option.cost} yarn`);
-      card.statusText.setText(selected ? 'EQUIPPED' : unlocked ? 'EQUIP' : CosmeticService.isCatGodMode() ? 'EQUIP' : 'BUY');
-      this.drawCard(card.background, selected, unlocked || CosmeticService.isCatGodMode());
+      card.statusText.setText(selected ? 'EQUIPPED' : unlocked ? 'EQUIP' : this.config.isCatGodMode() ? 'EQUIP' : 'BUY');
+      this.drawCard(card.background, selected, unlocked || this.config.isCatGodMode());
     }
     this.drawCatGodButton(false);
     this.config.updateRunLoadoutUi();
@@ -303,7 +305,7 @@ export class ShopRenderer {
   private drawCatGodButton(hovered = false) {
     if (!this.catGodButton) return;
     const { background, icon, label } = this.catGodButton;
-    const active = CosmeticService.isCatGodMode();
+    const active = this.config.isCatGodMode();
     background.clear();
     background.fillStyle(active ? 0x40d9a4 : 0x5a426f, hovered ? 1 : 0.96);
     background.fillRoundedRect(-73, -19, 146, 38, 14);
@@ -405,7 +407,8 @@ export class ShopRenderer {
     const visibleBottom = this.scrollY + SHOP_VIEWPORT.height;
     this.scrollElements.forEach((element) => {
       const halfHeight = (element.getData('shopHalfHeight') as number | undefined) ?? 0;
-      element.setVisible(element.y - halfHeight >= visibleTop && element.y + halfHeight <= visibleBottom);
+      const y = (element as VisibleGameObject & { y: number }).y;
+      element.setVisible(y - halfHeight >= visibleTop && y + halfHeight <= visibleBottom);
     });
   }
 

@@ -18,7 +18,7 @@ export type PixelPanelConfig = {
 export class PixelPanel {
   readonly graphics: Phaser.GameObjects.Graphics;
 
-  constructor(private readonly config: PixelPanelConfig) {
+  constructor(private config: PixelPanelConfig) {
     this.graphics = config.scene.add.graphics();
     if (config.depth !== undefined) this.graphics.setDepth(config.depth);
     this.draw();
