@@ -16,7 +16,7 @@ import {
   type ObstacleType
 } from './constants';
 import { playBasketSound, playGameSound, playToneSet, setAudioSettings } from './sound';
-import { MAP_CONNECTIONS, MAP_NODES, WORLDS, getWorldForNode, type MapNode, type ThemeKey } from './worldMap';
+import { MAP_NODES, WORLDS, getWorldForNode, type MapNode, type ThemeKey } from './worldMap';
 
 type RunnerSprite = Phaser.GameObjects.Image & {
   laneIndex?: number;
@@ -439,9 +439,11 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private eyeTrackedCats: EyeTrackedCat[] = [];
   private mapNodeButtons: MapNodeButton[] = [];
   private mapCardElements: VisibleGameObject[] = [];
+  private mapAtlasElements: VisibleGameObject[] = [];
   private mapCatAvatar!: Phaser.GameObjects.Image;
   private mapProgress: Record<string, number> = {};
   private selectedMapNodeId = MAP_NODES[0].id;
+  private mapInputReadyAt = 0;
   private speedMultiplier = 1;
   private selectedLevelId: LevelId = 'kitchen';
   private runMode: RunMode = 'milk-run';
@@ -827,7 +829,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.overlay.add(hud);
 
     const milkText = this.add
-      .text(232, -164, `Milk bottles: ${this.getTotalMilk()}/81`, this.textStyle(17, '#fffad0'))
+      .text(232, -164, `Milk bottles: ${this.getTotalMilk()}/${this.getMapMilkGoal()}`, this.textStyle(17, '#fffad0'))
       .setOrigin(0.5)
       .setStroke('#17347e', 4);
     milkText.setData('role', 'mapMilkTotal');
@@ -846,9 +848,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.runUiElements.push(backButton);
     this.overlay.add(backButton);
 
-    this.createMapWorldBands();
-    this.createMapConnections();
-    this.createMapNodes();
+    this.createMapAtlasPage();
     this.mapCatAvatar = this.add.image(0, 0, this.getSelectedCosmetic().run1).setScale(0.26);
     this.overlay.add(this.mapCatAvatar);
     this.runUiElements.push(this.mapCatAvatar);
@@ -856,68 +856,143 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.updateMapUi();
   }
 
+  private createMapAtlasPage() {
+    this.runUiElements = this.runUiElements.filter((element) => !this.mapAtlasElements.includes(element));
+    for (const element of this.mapAtlasElements) {
+      element.destroy();
+    }
+    this.mapAtlasElements = [];
+    this.mapNodeButtons = [];
+
+    this.createMapWorldBands();
+    this.createMapConnections();
+    this.createMapNodes();
+  }
+
+  private addMapAtlasElement<T extends VisibleGameObject>(element: T) {
+    this.overlay.add(element);
+    this.runUiElements.push(element);
+    this.mapAtlasElements.push(element);
+    return element;
+  }
+
+  private getActiveMapWorld() {
+    return getWorldForNode(this.getSelectedMapNode());
+  }
+
+  private getWorldNodeList(worldId: string) {
+    return MAP_NODES.filter((node) => node.worldId === worldId);
+  }
+
   private createMapWorldBands() {
-    WORLDS.forEach((world, index) => {
-      const centerX = -270 + index * 286;
-      const band = this.add.graphics();
-      band.fillStyle(Phaser.Display.Color.HexStringToColor(world.palette.background).color, 0.96);
-      band.fillRoundedRect(centerX - 136, -132, 264, 270, 18);
-      band.lineStyle(4, world.palette.pathEdge, 0.82);
-      band.strokeRoundedRect(centerX - 136, -132, 264, 270, 18);
-      band.fillStyle(world.palette.band, 0.34);
-      for (let y = -106; y < 128; y += 44) {
-        band.fillRoundedRect(centerX - 120, y, 232, 20, 10);
-      }
-      this.overlay.add(band);
-      this.runUiElements.push(band);
+    const world = this.getActiveMapWorld();
+    const worldIndex = WORLDS.findIndex((candidate) => candidate.id === world.id);
+    const previousWorld = WORLDS[worldIndex - 1];
+    const nextWorld = WORLDS[worldIndex + 1];
+    const activeNodes = this.getWorldNodeList(world.id);
+    const earnedInWorld = activeNodes.reduce((total, node) => total + Phaser.Math.Clamp(this.mapProgress[node.id] ?? 0, 0, 3), 0);
+    const possibleInWorld = activeNodes.filter((node) => node.nodeType !== 'gate').length * 3;
+
+    const band = this.add.graphics();
+    band.fillStyle(Phaser.Display.Color.HexStringToColor(world.palette.background).color, 0.96);
+    band.fillRoundedRect(-324, -132, 648, 270, 22);
+    band.lineStyle(5, world.palette.pathEdge, 0.84);
+    band.strokeRoundedRect(-324, -132, 648, 270, 22);
+    band.fillStyle(world.palette.band, 0.28);
+    for (let y = -108; y < 128; y += 42) {
+      band.fillRoundedRect(-292, y, 584, 18, 9);
+    }
+    band.fillStyle(0xffffff, 0.2);
+    band.fillCircle(-250, -72, 42);
+    band.fillCircle(248, 72, 50);
+    this.addMapAtlasElement(band);
+
+    const atlasLabel = this.add
+      .text(-294, -116, world.atlasLabel, { ...this.textStyle(11, '#17347e'), align: 'left' })
+      .setOrigin(0, 0.5);
+    this.addMapAtlasElement(atlasLabel);
 
     const banner = this.add
-        .text(centerX, -116, world.displayName, { ...this.textStyle(15, '#ffffff'), align: 'center', wordWrap: { width: 224 } })
-        .setOrigin(0.5)
-        .setStroke('#17347e', 4);
-      this.overlay.add(banner);
-      this.runUiElements.push(banner);
-
-      const propText = this.add
-        .text(centerX, 116, world.mapSkin.pathName, { ...this.textStyle(12, '#17347e'), align: 'center' })
-        .setOrigin(0.5);
-      this.overlay.add(propText);
-      this.runUiElements.push(propText);
-    });
-
-    const jokeSign = this.add
-      .text(-346, -68, 'NO CATS\nON COUNTER', { ...this.textStyle(10, '#6d3f28'), align: 'center', lineSpacing: -4 })
+      .text(0, -92, world.displayName, { ...this.textStyle(25, '#ffffff'), align: 'center', wordWrap: { width: 420 } })
       .setOrigin(0.5)
-      .setAngle(-7);
-    const trapBox = this.add
-      .text(-24, 34, 'Definitely\nNot A Trap', { ...this.textStyle(10, '#563816'), align: 'center', lineSpacing: -3 })
-      .setOrigin(0.5)
-      .setAngle(5);
-    const council = this.add
-      .text(332, -50, 'cat\ncouncil', { ...this.textStyle(10, '#17347e'), align: 'center', lineSpacing: -4 })
+      .setStroke('#17347e', 5);
+    this.addMapAtlasElement(banner);
+
+    const fantasy = this.add
+      .text(0, 120, `${world.mapSkin.pathName} - ${earnedInWorld}/${possibleInWorld} milk here`, {
+        ...this.textStyle(12, '#17347e'),
+        align: 'center',
+        wordWrap: { width: 420 }
+      })
       .setOrigin(0.5);
-    this.overlay.add([jokeSign, trapBox, council]);
-    this.runUiElements.push(jokeSign, trapBox, council);
+    this.addMapAtlasElement(fantasy);
+
+    if (previousWorld) {
+      this.createWorldPeek(-366, -4, previousWorld.shortName, 'Prev', previousWorld.palette.background, () =>
+        this.selectMapNode(this.getWorldNodeList(previousWorld.id)[0]?.id ?? this.selectedMapNodeId)
+      );
+    }
+    if (nextWorld) {
+      this.createWorldPeek(366, -4, nextWorld.shortName, 'Next', nextWorld.palette.background, () =>
+        this.selectMapNode(this.getWorldNodeList(nextWorld.id)[0]?.id ?? this.selectedMapNodeId)
+      );
+    }
+
+    const detailText = this.add
+      .text(0, 138, nextWorld ? `Next: ${nextWorld.displayName}` : 'Atlas edge: more worlds can grow beyond this page.', {
+        ...this.textStyle(11, '#fffad0'),
+        align: 'center',
+        wordWrap: { width: 420 }
+      })
+      .setOrigin(0.5)
+      .setStroke('#17347e', 3);
+    this.addMapAtlasElement(detailText);
+  }
+
+  private createWorldPeek(x: number, y: number, label: string, eyebrow: string, backgroundColor: string, onClick: () => void) {
+    const color = Phaser.Display.Color.HexStringToColor(backgroundColor).color;
+    const peek = this.add.container(x, y);
+    const bg = this.add.graphics();
+    bg.fillStyle(color, 0.92);
+    bg.fillRoundedRect(-52, -70, 104, 140, 16);
+    bg.lineStyle(3, 0xffffff, 0.75);
+    bg.strokeRoundedRect(-52, -70, 104, 140, 16);
+    const eyebrowText = this.add.text(0, -38, eyebrow, this.textStyle(11, '#17347e')).setOrigin(0.5);
+    const labelText = this.add
+      .text(0, 8, label, { ...this.textStyle(13, '#ffffff'), align: 'center', wordWrap: { width: 82 } })
+      .setOrigin(0.5)
+      .setStroke('#17347e', 4);
+    const zone = this.add.zone(0, 0, 104, 140).setInteractive();
+    peek.add([bg, eyebrowText, labelText, zone]);
+    zone.on('pointerup', () => {
+      if (this.time.now < this.mapInputReadyAt) return;
+      onClick();
+    });
+    zone.on('pointerover', () => this.tweens.add({ targets: peek, scale: 1.05, duration: 90, ease: 'Sine.easeOut' }));
+    zone.on('pointerout', () => this.tweens.add({ targets: peek, scale: 1, duration: 90, ease: 'Sine.easeOut' }));
+    this.addMapAtlasElement(peek);
   }
 
   private createMapConnections() {
-    MAP_CONNECTIONS.forEach((connection) => {
-      const from = MAP_NODES.find((node) => node.id === connection.from);
-      const to = MAP_NODES.find((node) => node.id === connection.to);
-      if (!from || !to) return;
+    const activeWorldId = this.getActiveMapWorld().id;
+    const activeNodes = this.getWorldNodeList(activeWorldId);
+    activeNodes.forEach((to) => {
+      const previousNodeId = to.unlock.previousNodeId;
+      if (!previousNodeId || previousNodeId.includes('_gate')) return;
+      const from = activeNodes.find((node) => node.id === previousNodeId);
+      if (!from) return;
       const world = getWorldForNode(to);
       const line = this.add.graphics();
       line.lineStyle(8, world.palette.pathEdge, 0.9);
       line.lineBetween(from.x - GAME_WIDTH / 2, from.y - GAME_HEIGHT / 2, to.x - GAME_WIDTH / 2, to.y - GAME_HEIGHT / 2);
       line.lineStyle(4, world.palette.path, 0.92);
       line.lineBetween(from.x - GAME_WIDTH / 2, from.y - GAME_HEIGHT / 2, to.x - GAME_WIDTH / 2, to.y - GAME_HEIGHT / 2);
-      this.overlay.add(line);
-      this.runUiElements.push(line);
+      this.addMapAtlasElement(line);
     });
   }
 
   private createMapNodes() {
-    MAP_NODES.forEach((node) => {
+    this.getWorldNodeList(this.getActiveMapWorld().id).forEach((node) => {
       const world = getWorldForNode(node);
       const container = this.add.container(node.x - GAME_WIDTH / 2, node.y - GAME_HEIGHT / 2);
       const background = this.add.graphics();
@@ -931,12 +1006,14 @@ export class KittyMilkRunScene extends Phaser.Scene {
         .setStroke('#17347e', 3);
       const clickZone = this.add.zone(0, 0, node.nodeType === 'gate' ? 76 : 58, node.nodeType === 'gate' ? 58 : 70).setInteractive();
       container.add([background, rating, labelText, clickZone]);
-      clickZone.on('pointerup', () => this.selectMapNode(node.id));
+      clickZone.on('pointerup', () => {
+        if (this.shopPointerHandled || this.time.now < this.mapInputReadyAt) return;
+        this.selectMapNode(node.id);
+      });
       clickZone.on('pointerover', () => this.tweens.add({ targets: container, scale: 1.08, duration: 90, ease: 'Sine.easeOut' }));
       clickZone.on('pointerout', () => this.tweens.add({ targets: container, scale: 1, duration: 90, ease: 'Sine.easeOut' }));
       container.setData('worldAccent', world.palette.accent);
-      this.overlay.add(container);
-      this.runUiElements.push(container);
+      this.addMapAtlasElement(container);
       this.mapNodeButtons.push({ node, container, background, rating, labelText });
     });
   }
@@ -949,7 +1026,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     card.strokeRoundedRect(-384, 148, 568, 88, 18);
     const title = this.add.text(-360, 164, '', this.textStyle(22, '#fffad0')).setStroke('#17347e', 5);
     title.setData('role', 'mapCardTitle');
-    const body = this.add.text(-360, 195, '', { ...this.textStyle(14, '#dff7ff'), wordWrap: { width: 388 }, lineSpacing: 2 }).setStroke('#17347e', 3);
+    const body = this.add.text(-360, 195, '', { ...this.textStyle(13, '#dff7ff'), wordWrap: { width: 520 }, lineSpacing: 1 }).setStroke('#17347e', 3);
     body.setData('role', 'mapCardBody');
     const playButton = this.createOverlayButton(110, 192, 118, 44, 'Play', 0x53d36d, () => this.startGame());
     playButton.setData('role', 'mapPlayButton');
@@ -965,6 +1042,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
     this.selectedLevelId = getWorldForNode(node).themeKey;
     this.createWorld();
     this.saveShopState();
+    if (this.overlayMode === 'map') {
+      this.createMapAtlasPage();
+    }
     this.updateMapUi();
     playBasketSound(this.isMapNodePlayable(node) ? 'equip' : 'deny');
   }
@@ -975,7 +1055,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
     for (const element of this.runUiElements) {
       const role = element.getData('role') as string | undefined;
       if (role === 'mapMilkTotal') {
-        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${totalMilk}/81`);
+        (element as Phaser.GameObjects.Text).setText(`Milk bottles: ${totalMilk}/${this.getMapMilkGoal()}`);
       } else if (role === 'selectedCat') {
         this.setEyeTrackedCatTexture(element as Phaser.GameObjects.Container, this.getSelectedCosmetic());
       } else if (role === 'mapCardTitle') {
@@ -1013,7 +1093,7 @@ export class KittyMilkRunScene extends Phaser.Scene {
       } else if (role === 'launchMilkBottle') {
         this.drawLaunchMilkBottle(element as Phaser.GameObjects.Graphics, totalMilk);
       } else if (role === 'launchMilkTotal') {
-        (element as Phaser.GameObjects.Text).setText(`${totalMilk}/81`);
+        (element as Phaser.GameObjects.Text).setText(`${totalMilk}/${this.getMapMilkGoal()}`);
       } else if (role === 'launchSelectedTitle') {
         (element as Phaser.GameObjects.Text).setText(selectedNode.displayName);
       } else if (role === 'launchSelectedBody') {
@@ -1194,8 +1274,8 @@ export class KittyMilkRunScene extends Phaser.Scene {
     }
     const bottles = this.mapProgress[node.id] ?? 0;
     const rating = bottles > 0 ? `Milk x${bottles}` : 'No bottles yet';
-    const locked = this.isMapNodeUnlocked(node) ? '' : ` Need ${node.unlock.requiredMilkBottles} total milk.`;
-    return `World: ${world.displayName}  Best: ${rating}\nGoal: ${node.flavor}${locked}`;
+    const locked = this.isMapNodeUnlocked(node) ? '' : ` Need ${node.unlock.requiredMilkBottles} milk.`;
+    return `World: ${world.shortName}  Best: ${rating}\n${node.flavor}${locked}`;
   }
 
   private getSelectedMapNode() {
@@ -1239,6 +1319,10 @@ export class KittyMilkRunScene extends Phaser.Scene {
 
   private getTotalMilk() {
     return Object.values(this.mapProgress).reduce((total, bottles) => total + Phaser.Math.Clamp(bottles, 0, 3), 0);
+  }
+
+  private getMapMilkGoal() {
+    return MAP_NODES.filter((node) => node.nodeType !== 'gate').length * 3;
   }
 
   private getNewestUnlockedNode() {
@@ -1868,6 +1952,9 @@ export class KittyMilkRunScene extends Phaser.Scene {
   private showOverlayMode(mode: OverlayMode) {
     if (this.phase !== 'start') return;
     this.overlayMode = mode;
+    if (mode === 'map') {
+      this.mapInputReadyAt = this.time.now + 180;
+    }
     this.setLaunchUiVisible(mode === 'launch');
     this.setRunUiVisible(mode === 'map');
     this.setShopUiVisible(mode === 'shop');
