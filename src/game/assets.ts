@@ -79,6 +79,7 @@ export type AssetKey = (typeof ASSETS)[keyof typeof ASSETS];
 export type SoundKey = (typeof SOUNDS)[keyof typeof SOUNDS];
 
 export function loadGameAssets(scene: Phaser.Scene) {
+  scene.load.setBaseURL(import.meta.env.BASE_URL.replace(/\/$/, ''));
   scene.load.svg(ASSETS.catRun1, '/assets/cat-run-1.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.catRun2, '/assets/cat-run-2.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.catHit, '/assets/cat-hit.svg', { width: 96, height: 88 });
