@@ -2382,7 +2382,8 @@ export class RunScene extends BaseScene {
 
   private updateMouseCursor() {
     const mouse = this.getSelectedMouseOption();
-    this.input.setDefaultCursor(`url(${mouse.cursorUrl}) ${mouse.hotSpot.x} ${mouse.hotSpot.y}, pointer`);
+    const cursorUrl = `${import.meta.env.BASE_URL}${mouse.cursorUrl.replace(/^\//, '')}`;
+    this.input.setDefaultCursor(`url(${cursorUrl}) ${mouse.hotSpot.x} ${mouse.hotSpot.y}, pointer`);
   }
 
   private getSelectedLevel() {

@@ -71,7 +71,8 @@ export abstract class BaseScene extends Phaser.Scene {
 
   protected applyMouseCursor() {
     const mouse = CosmeticService.getSelectedMouseOption();
-    this.input.setDefaultCursor(`url(${mouse.cursorUrl}) ${mouse.hotSpot.x} ${mouse.hotSpot.y}, pointer`);
+    const cursorUrl = `${import.meta.env.BASE_URL}${mouse.cursorUrl.replace(/^\//, '')}`;
+    this.input.setDefaultCursor(`url(${cursorUrl}) ${mouse.hotSpot.x} ${mouse.hotSpot.y}, pointer`);
   }
 
   protected createEyeTrackedCat(x: number, y: number, texture: string, scale: number, usesNyanArt = false): EyeTrackedCat {
