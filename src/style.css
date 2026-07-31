@@ -7,18 +7,33 @@ body {
   overflow: hidden;
   background: #1e2f1f;
   font-family: Arial, Helvetica, sans-serif;
+  overscroll-behavior: none;
 }
 
 #game {
-  width: 100vw;
-  height: 100vh;
+  box-sizing: border-box;
+  position: fixed;
+  left: var(--viewport-left, 0px);
+  top: var(--viewport-top, 0px);
+  width: var(--viewport-width, 100dvw);
+  height: var(--viewport-height, 100dvh);
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  touch-action: none;
 }
 
 canvas {
+  display: block;
   image-rendering: auto;
-  border: 6px solid #ffffff;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  /* Keep the frame inside Phaser's fitted size so it cannot clip on mobile. */
+  box-shadow:
+    inset 0 0 0 6px #ffffff,
+    0 20px 60px rgba(0, 0, 0, 0.35);
 }
