@@ -35,7 +35,15 @@ export class StorageService {
   static getJson<T>(key: string, fallback: T): T {
     try {
       const value = localStorage.getItem(key);
-      return value === null ? fallback : (JSON.parse(value) as T);
+      if (value === null) return fallback;
+      const parsed: unknown = JSON.parse(value);
+      // Valid JSON can still have the wrong shape (for example null instead of
+      // the shop's array). Reject it before callers enumerate or filter it.
+      if (Array.isArray(fallback)) return Array.isArray(parsed) ? parsed as T : fallback;
+      if (fallback !== null && typeof fallback === 'object') {
+        return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as T : fallback;
+      }
+      return typeof parsed === typeof fallback ? parsed as T : fallback;
     } catch {
       return fallback;
     }

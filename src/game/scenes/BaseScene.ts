@@ -100,6 +100,9 @@ export abstract class BaseScene extends Phaser.Scene {
       lookRange: new Phaser.Math.Vector2(3.1, 3.8)
     };
     this.layoutBaseEyeTrackedCat(trackedCat, usesNyanArt);
+    if (this.baseEyeTrackedCats.length === 0) {
+      this.events.once('shutdown', () => { this.baseEyeTrackedCats.length = 0; });
+    }
     this.baseEyeTrackedCats.push(trackedCat);
     return trackedCat;
   }

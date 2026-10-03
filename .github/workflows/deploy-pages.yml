@@ -28,6 +28,12 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Check types and game progression
+        run: |
+          npm run typecheck
+          npm run validate:game-data
+          npm run test:architecture
+          npm run test:map
       - name: Build game
         run: npm run build
       - name: Configure GitHub Pages

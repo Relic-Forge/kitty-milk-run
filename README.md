@@ -17,6 +17,9 @@ Open the local Vite URL.
 - A / D: move lanes
 - Space: start or restart
 - Touch/click: tap to start/restart, swipe left/right while playing
+- Milk Map: tap a stop to walk the trail; Left / Right explore stops, Up enters a bonus branch, Down rejoins the trail, Enter / Space plays, Escape returns home
+- World navigation: use the header arrows or chapter dots; locked stops explain their requirements
+- Results: choose Next Level, Milk Map, or Home
 - Shop: click a cat card on the start screen to buy or equip
 - Milk speed: choose 0.5x, 1x, 1.5x, or 2x on the start screen
 - Audio: toggle Sound FX and Music, then adjust volume on the start screen
@@ -50,3 +53,15 @@ Open the local Vite URL.
 - `src/game/sound.ts` randomizes cat sound effects and provides optional browser-native fallback tones.
 - `public/assets/` contains generated game artwork.
 - `docs/` contains PRD, art direction, build spec, and roadmap.
+
+## Verify changes
+
+```bash
+npm run typecheck
+npm run validate:game-data
+npm run test:architecture
+npm run test:map
+npm run build
+```
+
+For browser smoke checks, open `/kitty-milk-run/scripts/map-smoke.html` on the local dev server. Its fresh, travel, and all-world fixtures use in-memory saves and leave player progress untouched. It also provides finish/loss controls to check results, next-level retries, and returning to the map. This page is excluded from the production build.

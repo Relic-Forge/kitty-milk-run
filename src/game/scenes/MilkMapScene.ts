@@ -3,7 +3,6 @@ import { GameStateService } from '../services/GameStateService';
 import { ProgressService } from '../services/ProgressService';
 import { SceneRouter } from '../services/SceneRouter';
 import { MilkMapRenderer } from '../ui/map/MilkMapRenderer';
-import { buildMapViewModel } from '../viewModels/buildMapViewModel';
 import { getWorldForNode } from '../worldMap';
 import { BaseScene } from './BaseScene';
 
@@ -44,10 +43,12 @@ export class MilkMapScene extends BaseScene {
       showShop: () => SceneRouter.shop(this, 'MilkMapScene'),
       showLaunch: () => SceneRouter.launch(this)
     });
-    this.mapRenderer.create();
     this.mapRenderer.setPendingCelebration(ProgressService.consumePendingMapUnlock());
-    this.mapRenderer.update();
-    buildMapViewModel();
+    this.mapRenderer.create();
+    this.events.once('shutdown', () => {
+      this.mapRenderer?.destroy();
+      this.mapRenderer = undefined;
+    });
   }
 
   update() {

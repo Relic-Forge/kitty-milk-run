@@ -22,9 +22,9 @@ body {
     env(safe-area-inset-right, 0px)
     env(safe-area-inset-bottom, 0px)
     env(safe-area-inset-left, 0px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Phaser centers the fitted canvas with margins. Flex centering would
+     apply that offset a second time on portrait and wide phone screens. */
+  display: block;
   overflow: hidden;
   touch-action: none;
 }

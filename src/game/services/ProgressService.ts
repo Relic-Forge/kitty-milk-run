@@ -10,7 +10,7 @@ export type PendingMapUnlock = {
 };
 
 function clampBottleRating(value: number) {
-  return Math.max(0, Math.min(3, value));
+  return Number.isFinite(value) ? Math.max(0, Math.min(3, Math.floor(value))) : 0;
 }
 
 export class ProgressService {
@@ -21,10 +21,12 @@ export class ProgressService {
 
   static load() {
     ProgressService.devTestNodeId = ProgressService.getDevTestNodeId();
-    const storedProgress = StorageService.getJson<ProgressRecord>(STORAGE_KEYS.mapProgress, {});
+    const storedValue = StorageService.getJson<unknown>(STORAGE_KEYS.mapProgress, {});
+    const storedProgress = storedValue && typeof storedValue === 'object' && !Array.isArray(storedValue)
+      ? storedValue as ProgressRecord : {};
     ProgressService.progress = Object.fromEntries(
       Object.entries(storedProgress)
-        .filter(([id, bottles]) => MAP_NODES.some((node) => node.id === id) && Number.isFinite(Number(bottles)))
+        .filter(([id, bottles]) => MAP_NODES.some((node) => node.id === id && node.nodeType !== 'gate') && Number.isFinite(Number(bottles)))
         .map(([id, bottles]) => [id, clampBottleRating(Number(bottles))])
     );
 
@@ -57,22 +59,18 @@ export class ProgressService {
   static getCurrentRunNode() {
     const selectedNode = ProgressService.getSelectedNode();
     if (ProgressService.isNodePlayable(selectedNode)) return selectedNode;
-    const playableNodes = MAP_NODES.filter((node) => ProgressService.isNodePlayable(node));
-    const incompleteNode = [...playableNodes].reverse().find((node) => ProgressService.getBottlesForNode(node.id) < 3);
-    return incompleteNode ?? playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
+    return ProgressService.getNewestUnlockedNode();
   }
 
   static getCurrentMapCatNode() {
     if (ProgressService.devTestNodeId) {
       return getMapNodeById(ProgressService.devTestNodeId) ?? MAP_NODES[0];
     }
-    const playableNodes = MAP_NODES.filter((node) => ProgressService.isNodePlayable(node));
-    const incompleteNode = [...playableNodes].reverse().find((node) => ProgressService.getBottlesForNode(node.id) < 3);
-    return incompleteNode ?? playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
+    return ProgressService.getNewestUnlockedNode();
   }
 
   static getNewestUnlockedNode() {
-    const playableNodes = MAP_NODES.filter((node) => ProgressService.isNodePlayable(node));
+    const playableNodes = MAP_NODES.filter((node) => node.nodeType === 'main' && ProgressService.isNodePlayable(node));
     return playableNodes[playableNodes.length - 1] ?? MAP_NODES[0];
   }
 
@@ -90,7 +88,7 @@ export class ProgressService {
   }
 
   private static getDevTestNodeId() {
-    if (!import.meta.env.DEV || typeof window === 'undefined') return undefined;
+    if (!import.meta.env?.DEV || typeof window === 'undefined') return undefined;
     const params = new URLSearchParams(window.location.search);
     const explicitNodeId = params.get('testNode');
     const explicitNode = explicitNodeId ? MAP_NODES.find((node) => node.id === explicitNodeId && node.nodeType !== 'gate') : undefined;
@@ -160,7 +158,16 @@ export class ProgressService {
       perfectRun || yarnScore >= node.scoreTargets.threeBottleScore ? 3 : yarnScore >= node.scoreTargets.twoBottleScore ? 2 : 1;
     const nextBottles = Math.max(ProgressService.getBottlesForNode(node.id), earnedBottles);
     ProgressService.progress[node.id] = nextBottles;
-    const nextNodeId = ProgressService.getNewestUnlockedNode().id;
+    // Advance along the main trail. Bonus branches must never hijack the next level,
+    // and replaying an old stop must not teleport the player to a distant world.
+    const anchorId = node.nodeType === 'bonus' ? node.unlock.previousNodeId : node.id;
+    let nextNode = MAP_NODES.find((candidate) => candidate.nodeType === 'main' && candidate.unlock.previousNodeId === anchorId);
+    const gate = MAP_NODES.find((candidate) => candidate.nodeType === 'gate' && candidate.unlock.previousNodeId === anchorId);
+    if (!nextNode && gate && ProgressService.isGateOpen(gate.id)) {
+      nextNode = MAP_NODES.find((candidate) => candidate.nodeType === 'main' && candidate.unlock.previousNodeId === gate.id);
+    }
+    const nextNodeId = nextNode && ProgressService.isNodePlayable(nextNode) ? nextNode.id : node.id;
+    ProgressService.pendingMapUnlock = undefined;
     ProgressService.selectedNodeId = nextNodeId;
     if (nextNodeId !== node.id) {
       ProgressService.pendingMapUnlock = { fromNodeId: node.id, toNodeId: nextNodeId };

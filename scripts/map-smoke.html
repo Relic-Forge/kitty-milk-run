@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Kitty map smoke checks (development only)</title></head>
+<body><div id="game"></div><div id="checks" style="position:fixed;z-index:100;bottom:0;left:0;background:#fff;color:#111;font:12px Arial;padding:4px">
+<button id="fresh">Fresh map</button><button id="early">Travel fixture</button><button id="full">All worlds fixture</button>
+<button id="finish">Finish current run</button><button id="lose">Lose current run</button>
+<label><input id="god" type="checkbox">Invincible test run</label><output id="state"></output></div>
+<script type="module">
+import { StorageService } from '../src/game/services/StorageService.ts';
+import { ProgressService } from '../src/game/services/ProgressService.ts';
+import { MAP_NODES } from '../src/game/worldMap.ts';
+// Keep fixtures entirely in memory: smoke checks never read or replace a player's save.
+const memory = new Map();
+StorageService.getString = (key,fallback) => memory.get(key) ?? fallback;
+StorageService.getOptionalString = key => memory.get(key) ?? null;
+StorageService.setString = (key,value) => memory.set(key,value);
+StorageService.getJson = (key,fallback) => memory.has(key)?JSON.parse(memory.get(key)):fallback;
+await import('../src/main.ts');
+const game = () => window.__KITTY_MILK_RUN__;
+const active = () => game()?.scene.getScenes(true)[0];
+const openMap = () => active().scene.start('MilkMapScene');
+const fixture = count => {
+  memory.clear(); ProgressService.load();
+  for (const node of MAP_NODES.filter(n=>n.nodeType!=='gate').slice(0,count)) ProgressService.completeRun(node.id,1000,true);
+  ProgressService.consumePendingMapUnlock(); ProgressService.setSelectedNode(MAP_NODES[0].id); openMap();
+};
+document.querySelector('#fresh').onclick = () => fixture(0);
+document.querySelector('#early').onclick = () => fixture(6);
+document.querySelector('#full').onclick = () => fixture(90);
+document.querySelector('#finish').onclick = () => { const run=active(); if(run.scene.key==='RunScene' && run.phase==='playing') run.distance=run.getRunRecipe().finishDistance-5; };
+document.querySelector('#lose').onclick = () => { const run=active(); if(run.scene.key==='RunScene' && run.phase==='playing') run.loseGame(); };
+setInterval(()=>{
+  const scene=active(); if(!scene) return;
+  if(document.querySelector('#god').checked && scene.scene.key==='RunScene') scene.invulnerableUntil=scene.time.now+1000;
+  const map=scene.mapRenderer;
+  const hud = scene.scene.key === 'MilkMapScene' && map?.title
+    ? map.config.overlay.list.indexOf(map.title) > Math.max(...map.atlas.map(item => map.config.overlay.list.indexOf(item))) : '-';
+  document.querySelector('#state').textContent = ` Scene: ${scene.scene.key} | Selected: ${ProgressService.getSelectedNodeId()} | Run: ${scene.runNodeId??'-'} | Kitty: ${map?.avatarNodeId??'-'} | Moving: ${map?.moving??false} | Phase: ${scene.phase??'-'} | Card above landscape: ${hud}`;
+},100);
+</script></body></html>

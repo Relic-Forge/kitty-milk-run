@@ -1613,6 +1613,12 @@ export class RunScene extends BaseScene {
 
   private startNextLevelFromResult() {
     if (this.phase !== 'won') return;
+    if (this.useSceneNavigation && this.scene.key === 'RunScene') {
+      // Carry the new node into init, so retrying this run cannot return to the
+      // node that originally opened the scene.
+      this.scene.restart({ nodeId: this.getCurrentRunNode().id });
+      return;
+    }
     this.resetToStartScreen();
     this.startGame();
   }
@@ -2236,10 +2242,11 @@ export class RunScene extends BaseScene {
       .text(0, 62, message, this.textStyle(24, '#dff7ff'))
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
-    const primaryButton = this.createOverlayButton(-96, 142, 172, 48, primaryLabel, 0x53d36d, primaryAction);
-    const homeButton = this.createOverlayButton(112, 142, 142, 48, 'HOME', 0xffd166, () => this.navigateToLaunch());
-    this.overlay.add([scoreLabel, scoreValue, messageText, primaryButton, homeButton]);
-    this.endUiElements.push(scoreLabel, scoreValue, messageText, primaryButton, homeButton);
+    const primaryButton = this.createOverlayButton(-168, 142, 172, 48, primaryLabel, 0x53d36d, primaryAction);
+    const mapButton = this.createOverlayButton(20, 142, 152, 48, 'MILK MAP', 0xd890b0, () => this.navigateToMap());
+    const homeButton = this.createOverlayButton(180, 142, 118, 48, 'HOME', 0xffd166, () => this.navigateToLaunch());
+    this.overlay.add([scoreLabel, scoreValue, messageText, primaryButton, mapButton, homeButton]);
+    this.endUiElements.push(scoreLabel, scoreValue, messageText, primaryButton, mapButton, homeButton);
 
     const scoreTween = { value: 0 };
     this.tweens.add({
