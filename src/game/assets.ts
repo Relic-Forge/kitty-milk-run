@@ -1,3 +1,4 @@
+import { WORLDS } from './worldMap';
 export const ASSETS = {
   catRun1: 'cat-run-1',
   catRun2: 'cat-run-2',
@@ -80,6 +81,9 @@ export type SoundKey = (typeof SOUNDS)[keyof typeof SOUNDS];
 
 export function loadGameAssets(scene: Phaser.Scene) {
   scene.load.setBaseURL(import.meta.env.BASE_URL.replace(/\/$/, ''));
+  for (const world of WORLDS) {
+    scene.load.image(world.id, `/assets/milk-trail/${world.id}.jpg`);
+  }
   scene.load.svg(ASSETS.catRun1, '/assets/cat-run-1.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.catRun2, '/assets/cat-run-2.svg', { width: 96, height: 88 });
   scene.load.svg(ASSETS.catHit, '/assets/cat-hit.svg', { width: 96, height: 88 });

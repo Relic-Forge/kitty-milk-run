@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH } from '../../constants';
+import { GAME_HEIGHT, GAME_WIDTH } from '../../constants';
 import {
   ACCESSORIES,
   ALL_COSMETICS,
@@ -85,6 +85,8 @@ export class ShopRenderer {
   private scrollbarThumb?: Phaser.GameObjects.Graphics;
   private dragStartY: number | undefined;
   private dragStartScroll = 0;
+  private pressedCard?: Phaser.GameObjects.Container;
+  private scrollingGesture = false;
   private snapPoints: number[] = [0];
   private sectionTargets = new Map<string, number>();
   private sectionButtons: ShopSectionButton[] = [];
@@ -133,7 +135,7 @@ export class ShopRenderer {
     for (const card of this.cards) {
       const unlocked = this.config.isUnlocked(card.kind, card.option.id);
       const selected = this.config.isSelected(card.kind, card.option.id);
-      card.priceText.setText(card.option.cost === 0 ? 'Free' : `${card.option.cost} yarn`);
+      card.priceText.setText(unlocked ? 'Owned' : card.option.cost === 0 ? 'Free' : `${card.option.cost} yarn`);
       card.statusText.setText(selected ? 'EQUIPPED' : unlocked ? 'EQUIP' : this.config.isCatGodMode() ? 'EQUIP' : 'BUY');
       this.drawCard(card.background, selected, unlocked || this.config.isCatGodMode());
     }
@@ -161,6 +163,8 @@ export class ShopRenderer {
   }
 
   startDrag(pointer: Phaser.Input.Pointer) {
+    this.scrollingGesture = false;
+    if (pointer.y < GAME_HEIGHT / 2 + SHOP_VIEWPORT.top || pointer.y > GAME_HEIGHT / 2 + SHOP_VIEWPORT.bottom) return;
     if (pointer.x < GAME_WIDTH / 2 + SHOP_VIEWPORT.left || pointer.x > GAME_WIDTH / 2 + SHOP_VIEWPORT.left + SHOP_VIEWPORT.width) return;
     this.dragStartY = pointer.y;
     this.dragStartScroll = this.scrollTarget;
@@ -168,17 +172,21 @@ export class ShopRenderer {
 
   dragTo(pointer: Phaser.Input.Pointer) {
     if (this.dragStartY === undefined || !pointer.isDown) return;
+    if (pointer.getDistance() > 8) this.scrollingGesture = true;
+    if (!this.scrollingGesture) return;
     this.setScrollTarget(this.dragStartScroll + (this.dragStartY - pointer.y) * 1.25);
   }
 
   endDrag() {
-    if (this.dragStartY !== undefined) this.snapScrollTarget();
+    this.pressedCard = undefined;
+    if (this.scrollingGesture && this.dragStartY !== undefined) this.snapScrollTarget();
     this.dragStartY = undefined;
   }
 
   updateSmoothScroll(delta: number, visible: boolean) {
     if (!this.scrollContainer || !visible) return;
     if (this.getMaxScroll() <= 0) return;
+    if (this.scrollTarget === this.scrollY) return;
     const ease = Math.min(1, delta / 110);
     this.scrollY += (this.scrollTarget - this.scrollY) * ease;
     if (Math.abs(this.scrollTarget - this.scrollY) < 0.4) this.scrollY = this.scrollTarget;
@@ -259,7 +267,9 @@ export class ShopRenderer {
     const clickZone = this.config.scene.add.zone(0, 0, SHOP_CARD.width, SHOP_CARD.height).setInteractive();
     card.add([background, preview, nameText, priceText, statusText, clickZone]);
     card.setData('shopHalfHeight', SHOP_CARD.height / 2);
-    clickZone.on('pointerdown', () => {
+    clickZone.on('pointerdown', () => { this.pressedCard = card; });
+    clickZone.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (this.pressedCard !== card || this.scrollingGesture || pointer.getDistance() > 8) return;
       this.config.markPointerHandled();
       if (kind === 'cat') this.config.buyOrEquipCat(option as CosmeticOption);
       if (kind === 'mouse') this.config.buyOrEquipMouse(option as MouseOption);
@@ -387,9 +397,7 @@ export class ShopRenderer {
 
   private drawSectionButtons(hoverLabel?: string) {
     if (this.sectionButtons.length === 0) return;
-    const active = this.sectionButtons.reduce((best, button) => {
-      return Math.abs(button.target - this.scrollTarget) < Math.abs(best.target - this.scrollTarget) ? button : best;
-    }, this.sectionButtons[0]);
+    const active = [...this.sectionButtons].reverse().find(button => button.target <= this.scrollTarget + 1) ?? this.sectionButtons[0];
     for (const button of this.sectionButtons) {
       const selected = button.label === active.label;
       const hovered = button.label === hoverLabel;

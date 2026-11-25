@@ -45,7 +45,7 @@ game = new Phaser.Game({
 // Browsers require a user gesture before entering fullscreen. In landscape,
 // use the first game tap after rotation to enter it when the API is available.
 const requestLandscapeFullscreen = () => {
-  if (!window.matchMedia('(orientation: landscape)').matches || document.fullscreenElement) return;
+  if (!window.matchMedia('(orientation: landscape) and (pointer: coarse)').matches || document.fullscreenElement) return;
   if (!document.fullscreenEnabled || !navigator.userActivation?.isActive) return;
 
   void document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {

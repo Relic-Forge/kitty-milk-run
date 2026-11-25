@@ -20,9 +20,9 @@ Open the local Vite URL.
 - Milk Map: tap a stop to walk the trail; Left / Right explore stops, Up enters a bonus branch, Down rejoins the trail, Enter / Space plays, Escape returns home
 - World navigation: use the header arrows or chapter dots; locked stops explain their requirements
 - Results: choose Next Level, Milk Map, or Home
-- Shop: click a cat card on the start screen to buy or equip
+- Shop: open Shop and tap a card to buy or equip. Swipe or scroll to browse, and use Escape or Back to return
 - Milk speed: choose 0.5x, 1x, 1.5x, or 2x on the start screen
-- Audio: toggle Sound FX and Music, then adjust volume on the start screen
+- Audio: toggle Sound FX or tap Volume on the start screen to cycle through volume settings
 
 ## MVP Contents
 

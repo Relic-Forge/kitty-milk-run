@@ -1,3 +1,4 @@
+import { AudioSettingsService } from '../services/AudioSettingsService';
 import { SPEED_OPTIONS } from '../data/speedOptions';
 import { GameStateService } from '../services/GameStateService';
 import { ProgressService } from '../services/ProgressService';
@@ -25,10 +26,24 @@ export class LaunchScene extends BaseScene {
         onStartRun: () => SceneRouter.run(this, ProgressService.getCurrentRunNode().id),
         onOpenMap: () => SceneRouter.map(this),
         onOpenShop: () => SceneRouter.shop(this, 'LaunchScene'),
-        onCycleSpeed: () => this.cycleSpeed()
+        onCycleSpeed: () => this.cycleSpeed(),
+        onSound: () => {
+          AudioSettingsService.toggleSoundFx();
+          this.playUiSound();
+          this.launchRenderer?.update(buildLaunchViewModel());
+        },
+        onVolume: () => {
+          const percent = Math.round(AudioSettingsService.getVolume() * 100);
+          AudioSettingsService.setVolume(((Math.floor(percent / 25) + 1) % 5) / 4);
+          this.playUiSound();
+          this.launchRenderer?.update(buildLaunchViewModel());
+        }
       }
     );
     this.launchRenderer.create(buildLaunchViewModel());
+    this.input.keyboard?.on('keydown-SPACE', (event: KeyboardEvent) => {
+      if (!event.repeat) SceneRouter.run(this, ProgressService.getCurrentRunNode().id);
+    });
   }
 
   update() {

@@ -1,8 +1,8 @@
+import { PixelButton } from '../components/PixelButton';
 import Phaser from 'phaser';
 import { ASSETS } from '../../assets';
 import { UiCard } from '../core/UiCard';
 import { UiFooterActions } from '../core/UiFooterActions';
-import { UiFrame } from '../core/UiFrame';
 import type { buildLaunchViewModel } from '../../viewModels/buildLaunchViewModel';
 
 export type LaunchViewModel = ReturnType<typeof buildLaunchViewModel>;
@@ -12,6 +12,8 @@ export type LaunchRendererActions = {
   onOpenMap: () => void;
   onOpenShop: () => void;
   onCycleSpeed: () => void;
+  onSound: () => void;
+  onVolume: () => void;
 };
 
 export type LaunchScreenRendererConfig = {
@@ -22,6 +24,8 @@ export type LaunchScreenRendererConfig = {
 
 export class LaunchScreenRenderer {
   readonly elements: Phaser.GameObjects.GameObject[] = [];
+  private sound?: PixelButton;
+  private volume?: PixelButton;
   private speedText?: Phaser.GameObjects.Text;
   private speedBackground?: Phaser.GameObjects.Graphics;
   private speedYarn?: Phaser.GameObjects.Image;
@@ -37,8 +41,9 @@ export class LaunchScreenRenderer {
 
   create(viewModel: LaunchViewModel) {
     const { scene, textStyle } = this.config;
-    const frame = new UiFrame(scene, { fill: 0x5e8be8, panelFill: 0x2d5fbd });
-    this.elements.push(frame.container);
+    const stage = scene.add.container(480, 270);
+    this.elements.push(stage);
+    stage.add(scene.add.image(0, 0, viewModel.world.id).setDisplaySize(960, 540));
 
     const title = scene.add
       .text(0, -203, 'KITTY MILK RUN', {
@@ -49,32 +54,21 @@ export class LaunchScreenRenderer {
       })
       .setOrigin(0.5)
       .setStroke('#17347e', 8);
-    frame.container.add(title);
+    stage.add(title);
 
-    const hero = scene.add.graphics();
-    hero.fillStyle(0xffefba, 0.96);
-    hero.fillRoundedRect(-300, -150, 600, 128, 20);
-    hero.lineStyle(4, 0xffffff, 0.84);
-    hero.strokeRoundedRect(-300, -150, 600, 128, 20);
-    hero.fillStyle(0xc98248, 1);
-    hero.fillRoundedRect(-262, -64, 524, 24, 10);
-    hero.fillStyle(0x9b5734, 0.42);
-    hero.fillRoundedRect(-246, -57, 492, 6, 3);
-    frame.container.add(hero);
-
-    frame.container.add([this.createPixelMilkBowlCharm(scene, -174, -86).setScale(0.62), this.createPixelFishCharm(scene, 174, -91).setScale(0.62)]);
+    stage.add(scene.add.ellipse(0, -39, 134, 18, 0x4f3449, 0.25));
 
     this.cat = this.config.createEyeTrackedCat(0, -91, viewModel.selectedCat.texture, viewModel.selectedCat.usesNyanArt ? 1.28 : 1.14, viewModel.selectedCat.usesNyanArt);
     this.cat.setData('role', 'launchSelectedCat');
-    frame.container.add(this.cat);
+    stage.add(this.cat);
 
-    const card = new UiCard(scene, 0, 64, 600, 118, { selected: true });
+    const card = new UiCard(scene, 0, 64, 600, 118);
     this.titleText = scene.add.text(-270, 36, '', textStyle(13, '#fffad0')).setOrigin(0, 0.5).setStroke('#17347e', 4);
     this.selectedTitle = scene.add.text(-270, 64, '', textStyle(26, '#ffffff')).setOrigin(0, 0.5).setStroke('#17347e', 5);
     this.bodyText = scene.add.text(-270, 101, '', { ...textStyle(15, '#dff7ff'), wordWrap: { width: 532 }, lineSpacing: 4 }).setOrigin(0, 0.5).setStroke('#17347e', 3);
-    frame.container.add([card.container, this.titleText, this.selectedTitle, this.bodyText]);
+    stage.add([card.container, this.titleText, this.selectedTitle, this.bodyText]);
 
-    frame.container.add(
+    stage.add(
       new UiFooterActions(
         scene,
         164,
@@ -97,86 +91,26 @@ export class LaunchScreenRenderer {
     zone.on('pointerover', () => scene.tweens.add({ targets: speedButton, y: 220, duration: 90, ease: 'Sine.easeOut' }));
     zone.on('pointerout', () => scene.tweens.add({ targets: speedButton, y: 224, duration: 90, ease: 'Sine.easeOut' }));
     speedButton.add([this.speedBackground, this.speedYarn, this.speedText, zone]);
-    frame.container.add(speedButton);
+    stage.add(speedButton);
 
+    const audioButton = (x: number, action: () => void) => new PixelButton({
+      scene, textStyle, x, y: 224, width: 144, height: 30, fontSize: 13,
+      label: '', color: 0x59405c, onClick: action
+    });
+    this.sound = audioButton(-190, this.actions.onSound);
+    this.volume = audioButton(190, this.actions.onVolume);
+    stage.add([this.sound.container, this.volume.container]);
     this.update(viewModel);
   }
 
   update(viewModel: LaunchViewModel) {
-    this.speedText?.setText(`${viewModel.speedLabel} ▼`);
+    this.sound?.setLabel(viewModel.soundEnabled ? 'Sound FX on' : 'Sound FX off');
+    this.volume?.setLabel(`Volume ${Math.round(viewModel.volume * 100)}%`);
+    this.speedText?.setText(`Speed  ·  ${viewModel.speedLabel}`);
     this.drawSpeedButton(viewModel);
-    this.titleText?.setText('CURRENT RUN');
+    this.titleText?.setText('NEXT RUN');
     this.selectedTitle?.setText(viewModel.currentNode.displayName);
     this.bodyText?.setText(`${viewModel.world.displayName} - Level ${viewModel.currentNode.nodeType === 'bonus' ? 'Bonus' : viewModel.currentNode.id.slice(-2)}\nBottles: ${viewModel.currentBottleRating}`);
-  }
-
-  private createPixelMilkBowlCharm(scene: Phaser.Scene, x: number, y: number) {
-    const charm = scene.add.container(x, y);
-    const shadow = scene.add.graphics();
-    shadow.fillStyle(0x9b5734, 0.24);
-    shadow.fillRect(-34, 28, 68, 8);
-    const bowl = scene.add.graphics();
-    bowl.fillStyle(0xffffff, 1);
-    bowl.fillRect(-32, -6, 64, 16);
-    bowl.fillRect(-24, 10, 48, 16);
-    bowl.fillRect(-16, 26, 32, 8);
-    bowl.fillStyle(0xdff7ff, 1);
-    bowl.fillRect(-24, -14, 48, 10);
-    bowl.fillRect(-16, -20, 32, 6);
-    bowl.fillStyle(0x8ad6ff, 1);
-    bowl.fillRect(-18, -10, 36, 6);
-    bowl.fillStyle(0x63c6ff, 1);
-    bowl.fillRect(-24, 10, 48, 6);
-    bowl.fillStyle(0x17347e, 1);
-    bowl.fillRect(-34, -2, 4, 12);
-    bowl.fillRect(30, -2, 4, 12);
-    bowl.fillRect(-22, 26, 44, 4);
-    bowl.fillStyle(0xff9bc4, 1);
-    bowl.fillRect(-10, 12, 20, 8);
-    bowl.fillStyle(0xffffff, 1);
-    bowl.fillRect(-2, 14, 4, 4);
-    const sparkle = scene.add.graphics();
-    sparkle.fillStyle(0xffefba, 1);
-    sparkle.fillRect(34, -26, 6, 18);
-    sparkle.fillRect(28, -20, 18, 6);
-    sparkle.fillRect(-42, -16, 4, 12);
-    sparkle.fillRect(-46, -12, 12, 4);
-    charm.add([shadow, bowl, sparkle]);
-    return charm;
-  }
-
-  private createPixelFishCharm(scene: Phaser.Scene, x: number, y: number) {
-    const charm = scene.add.container(x, y);
-    const shadow = scene.add.graphics();
-    shadow.fillStyle(0x9b5734, 0.24);
-    shadow.fillRect(-32, 36, 64, 8);
-    const fish = scene.add.graphics();
-    fish.fillStyle(0x63c6ff, 1);
-    fish.fillRect(-24, -12, 40, 32);
-    fish.fillRect(-16, -20, 24, 48);
-    fish.fillStyle(0xbfefff, 1);
-    fish.fillRect(-16, -4, 24, 16);
-    fish.fillStyle(0xffd166, 1);
-    fish.fillRect(16, -12, 16, 12);
-    fish.fillRect(16, 8, 16, 12);
-    fish.fillRect(32, -4, 8, 16);
-    fish.fillStyle(0x17347e, 1);
-    fish.fillRect(-18, -8, 6, 6);
-    fish.fillStyle(0xffffff, 1);
-    fish.fillRect(-16, -8, 2, 2);
-    fish.fillStyle(0xff9bc4, 1);
-    fish.fillRect(-26, 8, 8, 6);
-    fish.fillStyle(0x2e6dff, 1);
-    fish.fillRect(-8, -20, 16, 6);
-    fish.fillRect(-8, 22, 16, 6);
-    const paw = scene.add.graphics();
-    paw.fillStyle(0xfff1f7, 1);
-    paw.fillRect(-2, -38, 12, 12);
-    paw.fillRect(-18, -30, 10, 10);
-    paw.fillRect(16, -30, 10, 10);
-    paw.fillRect(-10, -22, 28, 14);
-    charm.add([shadow, fish, paw]);
-    return charm;
   }
 
   private drawSpeedButton(viewModel: LaunchViewModel) {

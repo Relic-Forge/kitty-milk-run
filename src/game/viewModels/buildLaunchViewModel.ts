@@ -1,3 +1,4 @@
+import { AudioSettingsService } from '../services/AudioSettingsService';
 import { CosmeticService } from '../services/CosmeticService';
 import { GameStateService } from '../services/GameStateService';
 import { ProgressService } from '../services/ProgressService';
@@ -13,6 +14,8 @@ export function buildLaunchViewModel() {
   const speedOption = SPEED_OPTIONS.find((option) => option.multiplier === speedMultiplier) ?? SPEED_OPTIONS[1];
 
   return {
+    soundEnabled: AudioSettingsService.isSoundFxEnabled(),
+    volume: AudioSettingsService.getVolume(),
     currentNode,
     world,
     selectedCat: {

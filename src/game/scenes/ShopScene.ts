@@ -21,7 +21,8 @@ export class ShopScene extends BaseScene {
   create() {
     this.applyMouseCursor();
     const overlay = this.createScreenOverlay(0x5e8be8);
-    overlay.add(this.createPanel(-425, -244, 850, 486, 0x2d5fbd, 28));
+    overlay.add(this.add.image(0, 0, 'world_01_kitchen').setDisplaySize(960, 540));
+    overlay.add(this.createPanel(-425, -244, 850, 486, 0x392e49, 28).setAlpha(0.92));
     overlay.add(this.add.text(-350, -202, 'KITTY SHOP', this.textStyle(36, '#ffffff')).setOrigin(0, 0.5).setStroke('#17347e', 7));
     this.basketText = this.add.text(350, -202, '', { ...this.textStyle(18, '#dff7ff'), align: 'right' }).setOrigin(1, 0.5).setStroke('#17347e', 5);
     overlay.add(this.basketText);
@@ -50,6 +51,8 @@ export class ShopScene extends BaseScene {
     this.shopRenderer.create();
     this.updateShop();
 
+    this.input.keyboard?.on('keydown-ESC', () => this.scene.start(this.returnTo));
+    this.input.on('pointerupoutside', () => this.shopRenderer?.endDrag());
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => this.shopRenderer?.scrollBy(dy * 0.72));
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.shopRenderer?.startDrag(pointer));
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => this.shopRenderer?.dragTo(pointer));

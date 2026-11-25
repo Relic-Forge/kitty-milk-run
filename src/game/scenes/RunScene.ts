@@ -185,7 +185,7 @@ export class RunScene extends BaseScene {
   }
 
   preload() {
-    loadGameAssets(this);
+    if (!this.useSceneNavigation) loadGameAssets(this);
   }
 
   create() {
@@ -343,6 +343,12 @@ export class RunScene extends BaseScene {
       .text(GAME_WIDTH - 40, 26, 'Milk dash', { ...this.textStyle(18, '#ffffff'), align: 'right' })
       .setOrigin(1, 0)
       .setDepth(DEPTHS.hud);
+    const world = getWorldForNode(this.getSelectedMapNode());
+    this.distanceText.setText(
+      this.isFarmForYarn()
+        ? `Farm for Yarn: ${this.getSelectedLevel().name}`
+        : `World ${world.order + 1} · ${world.displayName}`
+    );
     this.progressBackground = this.add.graphics().setDepth(DEPTHS.hud);
     this.progressFill = this.add.graphics().setDepth(DEPTHS.hud);
     this.pauseButton = this.createPauseButton();
@@ -447,6 +453,21 @@ export class RunScene extends BaseScene {
       })
       .setOrigin(0.5)
       .setStroke('#17347e', 5);
+    if (this.useSceneNavigation && this.initialSceneMode === 'run') {
+      // Active runs only need the results overlay. Creating the storefront here
+      // also made HUD updates redraw every hidden merchandise card during play.
+      const scenery = this.add.image(0, 0, getWorldForNode(this.getSelectedMapNode()).id)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+      panel.clear().fillStyle(0x322b48, 0.90).fillRoundedRect(-342, -220, 684, 430, 30);
+      panel.lineStyle(3, 0xffe3ae, 0.92).strokeRoundedRect(-342, -220, 684, 430, 30);
+      this.overlay.add([backdrop, scenery, panel, this.titleText, this.instructionText]);
+      this.events.once('shutdown', () => {
+        this.celebrationObjects = [];
+        this.endUiElements = [];
+        this.pauseUiElements = [];
+      });
+      return;
+    }
     const shopTitle = this.add
       .text(-350, -150, 'Custom Kitty Shop', this.textStyle(24, '#fffad0'))
       .setOrigin(0, 0.5)
@@ -1470,33 +1491,22 @@ export class RunScene extends BaseScene {
   }
 
   private loadShopState() {
-    try {
+    // BootScene owns loading for routed games. Keep session-only equips and
+    // in-memory progress intact across run starts and retries.
+    if (!this.useSceneNavigation) {
       CosmeticService.load();
       GameStateService.load();
       AudioSettingsService.loadAndApply();
-      this.speedMultiplier = GameStateService.getSpeedMultiplier();
-      this.selectedLevelId = GameStateService.getSelectedLevelId();
       ProgressService.load();
-      if (this.runNodeId) ProgressService.setSelectedNode(this.runNodeId);
-      this.selectedMapNodeId = ProgressService.getSelectedNodeId();
-      this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
-      GameStateService.setSelectedLevelId(this.selectedLevelId);
-      this.runMode = GameStateService.getRunMode();
-      this.syncAudioSettingsFromService();
-      this.speed = this.getStartingSpeed();
-    } catch {
-      CosmeticService.load();
-      GameStateService.load();
-      AudioSettingsService.loadAndApply();
-      this.speedMultiplier = GameStateService.getSpeedMultiplier();
-      this.selectedLevelId = GameStateService.getSelectedLevelId();
-      this.selectedMapNodeId = MAP_NODES[0].id;
-      ProgressService.load();
-      if (this.runNodeId) ProgressService.setSelectedNode(this.runNodeId);
-      this.runMode = GameStateService.getRunMode();
-      this.syncAudioSettingsFromService();
-      this.speed = this.getStartingSpeed();
     }
+    this.speedMultiplier = GameStateService.getSpeedMultiplier();
+    if (this.runNodeId) ProgressService.setSelectedNode(this.runNodeId);
+    this.selectedMapNodeId = ProgressService.getSelectedNodeId();
+    this.selectedLevelId = getWorldForNode(this.getSelectedMapNode()).themeKey;
+    GameStateService.setSelectedLevelId(this.selectedLevelId);
+    this.runMode = GameStateService.getRunMode();
+    this.syncAudioSettingsFromService();
+    this.speed = this.getStartingSpeed();
   }
 
   private saveShopState() {
@@ -2161,6 +2171,7 @@ export class RunScene extends BaseScene {
     this.pauseButton.setVisible(false);
     const farmRun = this.isFarmForYarn();
     const perfectRun = !farmRun && this.obstacleHits === 0 && this.hearts === INITIAL_HEARTS;
+    const finishedNodeId = this.getSelectedMapNode().id;
     if (!farmRun) {
       this.recordMapLevelResult(perfectRun);
     }
@@ -2183,7 +2194,7 @@ export class RunScene extends BaseScene {
       farmRun ? 'YARN FARMED!' : perfectRun ? 'PUUURFECT!' : 'MILK FOUND!',
       farmRun ? 'Kitty filled the basket.' : 'Kitty got the milk.',
       perfectRun,
-      farmRun ? 'PLAY AGAIN' : 'NEXT LEVEL',
+      farmRun || this.getSelectedMapNode().id === finishedNodeId ? 'PLAY AGAIN' : 'NEXT LEVEL',
       farmRun ? () => this.restartGame() : () => this.startNextLevelFromResult()
     );
     this.overlay.setY(GAME_HEIGHT / 2).setAlpha(1).setVisible(true);
@@ -2308,11 +2319,6 @@ export class RunScene extends BaseScene {
     this.heartIcons.forEach((heart, index) => heart.setTexture(index < this.hearts ? ASSETS.heartFull : ASSETS.heartBroken));
     this.scoreText.setText(this.isFarmForYarn() ? `Farm yarn: ${this.yarnScore}/${FARM_YARN_GOAL}` : `Run yarn: ${this.yarnScore}`);
     this.basketText.setText(`Yarn basket: ${CosmeticService.getYarnBasket()}`);
-    this.distanceText.setText(
-      this.isFarmForYarn()
-        ? `Farm for Yarn: ${this.getSelectedLevel().name}`
-        : `World ${this.getSelectedLevel().order}: ${this.getSelectedLevel().name}`
-    );
     const progress = this.isFarmForYarn()
       ? Phaser.Math.Clamp(this.yarnScore / FARM_YARN_GOAL, 0, 1)
       : Phaser.Math.Clamp(this.distance / this.getRunRecipe().finishDistance, 0, 1);

@@ -104,7 +104,8 @@ export class MilkMapRenderer {
       }
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
       const stops = this.nodes().filter((n) => n.nodeType !== 'bonus');
-      const index = stops.findIndex((n) => n.id === node.id);
+      const anchorId = node.nodeType === 'bonus' ? node.unlock.previousNodeId : node.id;
+      const index = stops.findIndex((n) => n.id === anchorId);
       const next = event.key === 'ArrowLeft' ? getMapNodeById(node.unlock.previousNodeId ?? '') : stops[index + 1];
       if (next) this.config.selectMapNode(next.id);
     };
@@ -138,6 +139,10 @@ export class MilkMapRenderer {
   }
   private drawHeader() {
     const index = this.world.order;
+    const plaque = this.scene.add.graphics();
+    plaque.fillStyle(0x30243a, 0.87).fillRoundedRect(-353, -261, 564, 91, 18);
+    plaque.lineStyle(2, 0xffdeb0, 0.8).strokeRoundedRect(-353, -261, 564, 91, 18);
+    this.add(plaque, true);
     this.text(-333, -250, `THE MILK TRAIL  /  WORLD ${String(index + 1).padStart(2, '0')}`, 11, '#e8f6ff', true);
     this.text(-333, -231, this.world.displayName, 27, '#fff8df', true);
     const milk = this.nodes().filter((n) => n.nodeType !== 'gate').reduce((sum, n) => sum + this.config.getBottlesForNode(n.id), 0);
@@ -155,6 +160,7 @@ export class MilkMapRenderer {
       zone.on('pointerup', () => { if (this.ready()) this.visitWorld(i); });
       if (i === index) dot.setStrokeStyle(2, 0xffffff);
     });
+    this.add(this.scene.add.rectangle(0, 141, 336, 20, INK, 0.86), true);
     this.text(0, 141, 'Tap a stop to travel  ·  Arrows to explore  ·  Enter to play', 10, '#d8edf8', true).setOrigin(0.5);
   }
   private visitWorld(index: number) {
@@ -164,133 +170,34 @@ export class MilkMapRenderer {
     this.config.selectMapNode(next.id);
   }
   private drawLandscape() {
-    const outdoor = this.world.order >= 5;
-    const magic = this.world.order === 9;
-    const backdrop = this.scene.add.graphics();
-    backdrop.fillGradientStyle(magic ? 0x43396d : 0x5a88b1, magic ? 0x43396d : 0x5a88b1, magic ? 0x9385bf : 0x92cdd0, magic ? 0x9385bf : 0x92cdd0);
-    backdrop.fillRect(-480, -270, 960, 540);
-    this.add(backdrop, true);
-    const land = this.scene.add.graphics();
-    // A scalloped shoreline and layered cliff turn the map into a place rather
-    // than another UI card. Indoors, the same outline reads as a soft play rug.
-    const contour = [[-440,-80],[-411,-145],[-333,-158],[-259,-151],[-183,-164],[-91,-156],
-      [2,-169],[91,-158],[188,-164],[278,-155],[366,-160],[426,-124],[439,-56],
-      [432,12],[436,68],[396,113],[321,129],[232,123],[140,136],[48,127],
-      [-45,138],[-142,126],[-227,132],[-318,124],[-400,111],[-438,67],[-429,0],[-440,-80]];
-    const xs = contour.map(p => p[0]), ys = contour.map(p => p[1]);
-    const coast = Array.from({length:181},(_,i)=>new Phaser.Math.Vector2(
-      Phaser.Math.Interpolation.CatmullRom(xs,i/180), Phaser.Math.Interpolation.CatmullRom(ys,i/180)));
-    const shifted = (offset: number) => coast.map(p => new Phaser.Math.Vector2(p.x,p.y+offset));
-    land.fillStyle(0x253e61,0.25).fillPoints(shifted(22),true);
-    land.fillStyle(magic ? 0x7e6fba : outdoor ? 0x63998b : 0xbc8295).fillPoints(shifted(12),true);
-    land.fillStyle(magic ? 0xb6a0d9 : outdoor ? 0x9ccc99 : Phaser.Display.Color.HexStringToColor(this.world.palette.background).color);
-    land.fillPoints(coast,true);
-    land.lineStyle(4,0xfff7da,0.65).strokePoints(coast,true);
-    // Scenic pockets break up the flat panel without competing with the trail.
-    land.fillStyle(outdoor ? 0xdef1b4 : 0xfff5de, 0.36);
-    land.fillEllipse(-230, 47, 172, 113); land.fillEllipse(155, 84, 184, 75);
-    land.fillEllipse(55, -75, 180, 118);
-    land.fillStyle(outdoor ? 0x689a80 : 0xe9aebd, 0.26);
-    for (let i = 0; i < 24; i++) {
-      const x = -390 + (i * 137 % 780), y = -128 + (i * 61 % 227);
-      land.fillEllipse(x, y, 13, 5);
-    }
-    this.add(land, true);
-    this.drawLandmarks(outdoor, magic);
-  }
-  private art(x: number, y: number, texture: string, width: number) {
-    const image = this.scene.add.image(x, y, texture);
-    image.setScale(width / image.width); return this.add(image, true);
-  }
-  private drawLandmarks(outdoor: boolean, magic: boolean) {
-    const g = this.scene.add.graphics();
-    this.add(g, true);
-    const shadow = (x: number, y: number, w: number) => g.fillStyle(INK, 0.12).fillEllipse(x, y, w, 15);
-    const tree = (x: number, y: number, color: number) => {
-      shadow(x, y + 23, 52); g.fillStyle(0x9b7459).fillRoundedRect(x - 6, y - 5, 12, 30, 4);
-      g.fillStyle(0x547f78).fillCircle(x, y - 23, 27);
-      g.fillStyle(color).fillCircle(x - 11, y - 29, 20).fillCircle(x + 12, y - 28, 21).fillCircle(x, y - 44, 19);
-      g.fillStyle(0xffffff, 0.23).fillEllipse(x - 10, y - 42, 15, 8);
-    };
-    if (magic) {
-      this.art(-385, -93, ASSETS.kingdomTower, 47);
-      this.art(347, -100, ASSETS.kingdomTower, 56);
-      this.art(30, -116, ASSETS.magicCloud, 112);
-      for (const [x,y] of [[-250,83],[140,97],[-10,-67],[384,0]]) this.art(x,y,ASSETS.magicCrystal,27);
-      this.art(-167,100,ASSETS.magicMushroom,44);
-    } else if (outdoor) {
-      tree(-390, -88, 0xc4dd8e); tree(353, -92, 0xe6bbce); tree(70, -107, 0xd0e7a3);
-      // A little pond with a stepping-stone bank.
-      g.fillStyle(0x5c9dac).fillEllipse(-227, 67, 113, 52);
-      g.fillStyle(0xa9e0df).fillEllipse(-229, 60, 101, 44);
-      g.lineStyle(2, 0xffffff, 0.6).lineBetween(-255, 55, -225, 55).lineBetween(-236, 68, -207, 68);
-      for (const [x,y] of [[-170,101],[39,-92],[243,90],[-398,24]]) this.art(x,y,ASSETS.flower,21);
-      this.art(153,94,ASSETS.grassTuft,34);
-      if (this.world.order >= 7) {
-        shadow(32, -91, 60); g.fillStyle(0xad927c).fillRoundedRect(8,-115,49,8,3).fillRoundedRect(8,-102,49,8,3);
-        g.fillStyle(INK).fillRect(13,-95,5,13).fillRect(46,-95,5,13);
-      }
+    this.add(this.scene.add.image(0, 0, this.world.id).setDisplaySize(960, 540), true);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const outdoors = this.world.order >= 5 && this.world.order < 9;
+    // Give the scene a resident, with motion confined to a pocket off the trail.
+    const enchanted = this.world.order === 9;
+    const texture = enchanted ? ASSETS.magicKingdomStarLantern : outdoors ? ASSETS.flower : ASSETS.mouseRodent;
+    const resident = this.add(this.scene.add.image(-235, 68, texture), true);
+    resident.setScale((enchanted ? 44 : 31) / resident.width);
+    if (enchanted || outdoors) {
+      resident.setOrigin(0.5, 0.9).setAngle(-7);
+      this.scene.tweens.add({ targets: resident, angle: 7, y: enchanted ? 56 : 68,
+        duration: 1650, ease: 'Sine.inOut', yoyo: true, repeat: -1 });
     } else {
-      // Soft furniture, a sunny window, a rug and toys make the indoor worlds feel inhabited.
-      shadow(-225, 75, 100);
-      g.fillStyle(0xbc718f).fillRoundedRect(-273,39,96,34,12);
-      g.fillStyle(0xffd7ba).fillRoundedRect(-272,24,94,35,12);
-      g.fillStyle(0xf4a7bc).fillRoundedRect(-266,38,36,17,6).fillRoundedRect(-224,38,37,17,6);
-      g.fillStyle(0xfff4d9).fillRoundedRect(4,-142,78,51,8);
-      g.fillStyle(0x93d0dc).fillRoundedRect(10,-136,66,39,5);
-      g.lineStyle(4,0xfff4d9).lineBetween(43,-136,43,-97).lineBetween(10,-117,76,-117);
-      g.fillStyle(0xffffff,0.4).fillTriangle(10,-97,76,-97,121,-25);
-      g.fillStyle(0xffecb6,0.82).fillRoundedRect(136,67,109,36,17);
-      g.lineStyle(2,0xdaab7d,0.5).strokeRoundedRect(141,72,99,26,12);
-      this.art(192,80,ASSETS.milkBowl,40);
-      this.art(-389,-94,ASSETS.yarnPink,38); this.art(349,-106,ASSETS.yarnBlue,31);
-      if (this.world.order === 1) {
-        g.fillStyle(0x91664f).fillRoundedRect(-262,23,76,16,4);
-        g.fillStyle(0xfff4db).fillRoundedRect(-255,-7,61,31,6);
-        this.art(-223,2,ASSETS.milkBottle,24);
-      }
+      this.scene.tweens.add({ targets: resident, x: -192, duration: 680,
+        hold: 1100, repeatDelay: 1900, ease: 'Sine.inOut', yoyo: true, repeat: -1,
+        onYoyo: () => resident.setFlipX(true), onRepeat: () => resident.setFlipX(false) });
     }
-    // Each chapter adds its own landmark, even when it shares a gameplay theme.
-    if (this.world.order === 2) {
-      this.art(42,-109,ASSETS.yarnPurple,26);
-      g.fillStyle(0xc79271).fillRoundedRect(-176,74,39,32,3);
-      g.lineStyle(2,0xf4d1a5).lineBetween(-176,74,-157,85).lineBetween(-137,74,-157,85);
-    } else if (this.world.order === 3) {
-      shadow(-225,77,108);
-      g.fillStyle(0x987fb8).fillRoundedRect(-278,28,108,48,8);
-      g.fillStyle(0xd3c6f0).fillRoundedRect(-274,31,100,38,8);
-      g.fillStyle(0xfff4e1).fillRoundedRect(-267,33,29,28,6);
-      g.fillStyle(0xc4afe8).fillRoundedRect(-233,33,59,36,6);
-    } else if (this.world.order === 4) {
-      g.fillStyle(0xa97d66).fillRoundedRect(5,-148,76,67,6);
-      g.fillStyle(0xf5d5b3).fillRoundedRect(10,-143,66,62,4);
-      g.fillStyle(0xb78e71).fillRoundedRect(19,-134,22,44,4).fillRoundedRect(45,-134,22,44,4);
-      g.fillStyle(0xffdf8a).fillCircle(61,-111,3);
-    } else if (this.world.order === 5) {
-      for (let x=12;x<120;x+=16) {
-        g.fillStyle(0xfff3cd).fillRoundedRect(x,-113,9,36,3).fillTriangle(x,-113,x+4,-120,x+9,-113);
-      }
-      g.fillStyle(0xe5c69a).fillRect(12,-102,108,4).fillRect(12,-87,108,4);
-    } else if (this.world.order === 6) {
-      shadow(43,-75,116);
-      g.fillStyle(0xfff3da).fillRoundedRect(0,-130,85,49,5);
-      g.fillStyle(0xc48189).fillTriangle(-10,-130,43,-162,94,-130);
-      g.fillStyle(0x60849d).fillRoundedRect(31,-112,25,31,4);
-      g.fillStyle(0xc4c4b1).fillRoundedRect(-5,-81,95,7,3).fillRoundedRect(-11,-74,107,7,3);
-    } else if (this.world.order === 7) {
-      g.fillStyle(0x8a9ca6).fillRect(-163,81,8,24);
-      g.fillStyle(0xe39da8).fillRoundedRect(-179,66,39,20,7);
-      g.fillStyle(0xffdf92).fillRect(-158,62,13,7);
-      for(let i=0;i<3;i++) g.fillStyle(0xe4d8c2).fillRoundedRect(116+i*33,81,29,24,4);
-    } else if (this.world.order === 8) {
-      for (const [x,color] of [[16,0xf1be9a],[74,0xffd9b6]]) {
-        g.fillStyle(color).fillRoundedRect(x,-123,44,42,4);
-        g.fillStyle(0x7e819c).fillTriangle(x-5,-123,x+22,-147,x+49,-123);
-        g.fillStyle(0x78a9b6).fillRect(x+9,-113,10,12).fillRect(x+28,-113,10,12);
-      }
+    for (let i = 0; i < 10; i++) {
+      const x = -440 + (i * 173 + this.world.order * 37) % 875;
+      const y = -155 + (i * 79) % 265;
+      const mote = this.add(this.scene.add.star(x, y, 4, 1, i % 3 + 2,
+        outdoors ? 0xffeba1 : 0xfff4db).setAlpha(0), true);
+      this.scene.tweens.add({
+        targets: mote, x: x + 12, y: y - 24, alpha: 0.9, angle: 45,
+        duration: 1500 + i * 145, delay: i * 130, ease: 'Sine.inOut', yoyo: true, repeat: -1
+      });
     }
-    this.art(-390,90,ASSETS.milkBowl,38);
-    this.text(-390,113,'START',9,'#fff8df',true).setOrigin(0.5);
   }
   private drawConnections() {
     for (const to of this.nodes()) {
@@ -305,8 +212,8 @@ export class MilkMapRenderer {
         g.strokePath();
       };
       stroke(to.nodeType === 'bonus' ? 14 : 23, INK, 0.16);
-      stroke(to.nodeType === 'bonus' ? 10 : 17, 0xb99175);
-      stroke(to.nodeType === 'bonus' ? 6 : 12, unlocked ? 0xffe7a5 : 0xe3d0ba);
+      stroke(to.nodeType === 'bonus' ? 11 : 18, this.world.palette.pathEdge);
+      stroke(to.nodeType === 'bonus' ? 7 : 12, unlocked ? 0xffe7a5 : this.world.palette.path);
       // Markers are drawn in local positions, never rotated around the canvas origin.
       for (let i=1;i<8;i++) {
         const p=quadraticPoint(start,control,end,i/8);
@@ -361,11 +268,11 @@ export class MilkMapRenderer {
       g.lineStyle(3,0xffdc88,0.9).strokeCircle(0,0,radius+11);
     }
     g.fillStyle(INK,0.2).fillEllipse(0,8,radius*2+9, radius*2);
-    g.fillStyle(unlocked?bottles?0x69b996:node.nodeType==='bonus'?0xe9ac62:0xf5c976:0xa69da4).fillCircle(0,0,radius);
+    g.fillStyle(unlocked?bottles?0x69b996:node.nodeType==='bonus'?0xe9ac62:0xf5c976:0x827388).fillCircle(0,0,radius);
     g.lineStyle(3,unlocked?0xfff4d6:0xd8c9c8).strokeCircle(0,0,radius);
     g.fillStyle(0xffffff,0.22).fillEllipse(-6,-10,22,10);
-    label.setVisible(unlocked);
-    if (node.nodeType === 'main') caption.setText(unlocked ? '' : label.text);
+    label.setVisible(unlocked || node.nodeType === 'main');
+    if (node.nodeType === 'main') caption.setVisible(false);
     if (node.nodeType === 'gate') {
       g.fillStyle(0x92728d).fillRoundedRect(-25,-34,50,58,9);
       g.fillStyle(0xffe6bd).fillRoundedRect(-22,-37,44,58,9);
@@ -374,7 +281,7 @@ export class MilkMapRenderer {
       if (unlocked) g.fillStyle(0xffdc88).fillTriangle(-5,-14,8,-7,-5,0);
       label.setVisible(false);
     }
-    if (!unlocked) {
+    if (!unlocked && node.nodeType !== 'main') {
       g.lineStyle(3,0x525b6e).strokeRoundedRect(-6,-9,12,14,6);
       g.fillStyle(0x525b6e).fillRoundedRect(-10,-2,20,16,4);
       g.fillStyle(0xdedce1).fillCircle(0,4,2).fillRect(-1,4,2,5);
